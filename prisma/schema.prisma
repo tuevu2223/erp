@@ -1,0 +1,99 @@
+// ─────────────────────────────────────────────────────────────
+// WMS Core — schema theo TÀI LIỆU THIẾT KẾ KỸ THUẬT mục 3
+// 4 bảng cốt lõi: users, products, inventories, stock_movements
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Phân quyền theo tài liệu kỹ thuật (mục 3 - users.role)
+enum Role {
+  ADMIN
+  WAREHOUSE_STAFF
+}
+
+/// Loại giao dịch kho (mục 3 - stock_movements.type)
+enum MovementType {
+  IMPORT
+  EXPORT
+  ADJUST
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         Role     @default(WAREHOUSE_STAFF)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  movements StockMovement[]
+
+  @@map("users")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  sku       String   @unique
+  name      String
+  unit      String   @default("pcs")
+  /// "Quản lý danh mục hàng hóa (SKU, tên, đơn vị tính, danh mục)" - mục 1
+  category  String   @default("Uncategorised")
+  /// Ngưỡng cảnh báo bổ sung hàng (safety stock) - nguồn của badge Low stock trên UI
+  minStock  Int      @default(0) @map("min_stock")
+  /// Ô/kệ lưu hàng - "không biết chính xác mặt hàng nào đang nằm ở ô/kệ nào" (mục 1)
+  location  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  inventory Inventory?
+  movements StockMovement[]
+
+  @@index([category])
+  @@map("products")
+}
+
+model Inventory {
+  id        String   @id @default(cuid())
+  productId String   @unique @map("product_id")
+  /// Tồn thực tế, luôn >= 0 (check constraint trong migration)
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("inventories")
+}
+
+/// Sổ cái biến động kho - bảng quan trọng nhất, chỉ ghi thêm (append-only)
+model StockMovement {
+  id           String       @id @default(cuid())
+  /// Số thứ tự dùng để sinh mã phiếu GRN-/DO-/ADJ- hiển thị trên UI
+  seq          Int          @unique @default(autoincrement())
+  productId    String       @map("product_id")
+  type         MovementType
+  /// Số lượng thay đổi có dấu: +50 khi nhập, -20 khi xuất (mục 3)
+  quantity     Int
+  /// Tồn kho ngay sau giao dịch - cột "Balance" trong sổ cái
+  balanceAfter Int          @map("balance_after")
+  reason       String?
+  /// Đối tác giao dịch (nhà cung cấp / khách hàng) hiển thị trên phiếu
+  partner      String?
+  note         String?
+  createdBy    String?      @map("created_by")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
