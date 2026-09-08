@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { handleApiError } from "@/lib/api";
 import { getReports } from "@/lib/analytics";
+import { requireRole } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export function parseRange(value: string | null): number {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Báo cáo phân tích dành cho MANAGER trở lên (ma trận RBAC mục 4).
+    await requireRole("MANAGER");
     const days = parseRange(request.nextUrl.searchParams.get("range"));
     return NextResponse.json(await getReports(days));
   } catch (error) {

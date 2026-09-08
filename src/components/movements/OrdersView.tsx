@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useApp } from "@/components/app-provider";
 import { Icon } from "@/components/ui/Icon";
 import { Pager } from "@/components/ui/Pager";
@@ -14,22 +15,20 @@ type OrdersViewProps = {
 
 const COPY = {
   IMPORT: {
-    title: "Inbound orders",
-    sub: "Goods receipts from suppliers and returns",
-    cta: "New inbound",
+    title: "inbTitle",
+    sub: "inbSub",
+    cta: "newInbound",
     drawer: "inbound" as const,
-    counterparty: "Supplier",
-    empty: "No inbound receipts yet",
-    emptyHint: "Post a receipt to add stock to the warehouse.",
+    empty: "noMovementsH",
+    emptyHint: "noMovementsP",
   },
   EXPORT: {
-    title: "Outbound orders",
-    sub: "Picks, shipments and write-offs",
-    cta: "New outbound",
+    title: "outTitle",
+    sub: "outSub",
+    cta: "newOutbound",
     drawer: "outbound" as const,
-    counterparty: "Customer",
-    empty: "No outbound orders yet",
-    emptyHint: "Issue stock to see dispatches listed here.",
+    empty: "noMovementsH",
+    emptyHint: "noMovementsP",
   },
 };
 
@@ -40,6 +39,7 @@ const COPY = {
  * người thực hiện và thời điểm ghi sổ.
  */
 export function OrdersView({ type }: OrdersViewProps) {
+  const t = useTranslations("app");
   const { revision, openDrawer } = useApp();
   const copy = COPY[type];
   const [page, setPage] = useState(1);
@@ -56,8 +56,8 @@ export function OrdersView({ type }: OrdersViewProps) {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{copy.title}</h1>
-          <p className="page-sub">{copy.sub}</p>
+          <h1 className="page-title">{t(copy.title)}</h1>
+          <p className="page-sub">{t(copy.sub)}</p>
         </div>
         <button
           type="button"
@@ -65,14 +65,14 @@ export function OrdersView({ type }: OrdersViewProps) {
           onClick={() => openDrawer(copy.drawer)}
         >
           <Icon name={type === "IMPORT" ? "plus" : "minus"} size={14} stroke={2.2} />
-          {copy.cta}
+          {t(copy.cta)}
         </button>
       </div>
 
       <div className="card">
         {error && (
           <div className="empty">
-            <div className="empty-h">Could not load orders</div>
+            <div className="empty-h">{t("loadError")}</div>
             <p className="empty-p">{error}</p>
           </div>
         )}
@@ -82,14 +82,14 @@ export function OrdersView({ type }: OrdersViewProps) {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 124 }}>Order</th>
-                  <th style={{ width: 112 }}>SKU</th>
-                  <th>Product</th>
-                  <th style={{ width: 170 }}>{copy.counterparty}</th>
-                  <th style={{ width: 96 }}>Reason</th>
-                  <th style={{ width: 88, textAlign: "right" }}>Qty</th>
-                  <th style={{ width: 118 }}>Operator</th>
-                  <th style={{ width: 108 }}>Posted</th>
+                  <th style={{ width: 124 }}>{t("colOrder")}</th>
+                  <th style={{ width: 112 }}>{t("colSku")}</th>
+                  <th>{t("colProductShort")}</th>
+                  <th style={{ width: 170 }}>{t("colParty")}</th>
+                  <th style={{ width: 96 }}>{t("colReason")}</th>
+                  <th style={{ width: 88, textAlign: "right" }}>{t("colQty")}</th>
+                  <th style={{ width: 118 }}>{t("colOperator")}</th>
+                  <th style={{ width: 108 }}>{t("colPosted")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -124,8 +124,8 @@ export function OrdersView({ type }: OrdersViewProps) {
 
         {!error && !loading && rows.length === 0 && (
           <div className="empty">
-            <div className="empty-h">{copy.empty}</div>
-            <p className="empty-p">{copy.emptyHint}</p>
+            <div className="empty-h">{t(copy.empty)}</div>
+            <p className="empty-p">{t(copy.emptyHint)}</p>
           </div>
         )}
 

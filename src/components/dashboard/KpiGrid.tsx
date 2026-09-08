@@ -36,9 +36,13 @@ export function Spark({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-export function deltaNote(delta: number | null, fallback: string) {
+export function deltaNote(
+  delta: number | null,
+  fallback: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   if (delta === null) return fallback;
-  return `${delta >= 0 ? "+" : "−"}${Math.abs(delta)}% vs yesterday`;
+  return t("vsYesterday", { d: `${delta >= 0 ? "+" : "−"}${Math.abs(delta)}` });
 }
 
 /**

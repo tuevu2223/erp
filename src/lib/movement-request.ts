@@ -7,6 +7,7 @@ import {
   requireNonZeroInt,
   requirePositiveInt,
 } from "@/lib/api";
+import { requireSession } from "@/lib/guard";
 import { postStockMovement, type StockMovementInput } from "@/lib/inventory";
 import type { MovementType } from "@/lib/types";
 
@@ -17,6 +18,8 @@ import type { MovementType } from "@/lib/types";
  */
 export async function handleMovementRequest(request: Request, type: MovementType) {
   try {
+    // Mọi vai trò (kể cả STAFF) đều được lập phiếu — ma trận RBAC mục 4.
+    const me = await requireSession();
     const body = await readJsonBody(request);
     const productId = optionalString(body, "productId");
     const sku = optionalString(body, "sku");
@@ -33,7 +36,8 @@ export async function handleMovementRequest(request: Request, type: MovementType
       reason: optionalString(body, "reason"),
       partner: optionalString(body, "partner"),
       note: optionalString(body, "note"),
-      createdBy: optionalString(body, "createdBy"),
+      // Người thực hiện lấy từ session, KHÔNG tin giá trị client gửi lên.
+      createdBy: me.id,
     };
 
     const result = await postStockMovement(type, input);

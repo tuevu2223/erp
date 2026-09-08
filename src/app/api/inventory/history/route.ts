@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { handleApiError, pageMeta, readPagination } from "@/lib/api";
+import { requireSession } from "@/lib/guard";
 import { listMovements } from "@/lib/inventory";
 import type { MovementType, Paginated, MovementRow } from "@/lib/types";
 
@@ -13,6 +14,7 @@ const TYPES: MovementType[] = ["IMPORT", "EXPORT", "ADJUST"];
  */
 export async function GET(request: NextRequest) {
   try {
+    await requireSession();
     const params = request.nextUrl.searchParams;
     const { page, limit, skip } = readPagination(params, { defaultLimit: 50, maxLimit: 200 });
     const type = params.get("type");

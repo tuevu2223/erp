@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-provider";
@@ -15,72 +16,77 @@ import type { DashboardPayload } from "@/lib/types";
  * trạng tồn kho hiện tại. Mọi thống kê chu kỳ 7 ngày nằm ở trang Reports để hai
  * trang không còn trùng nhau.
  */
-function buildCards(dashboard: DashboardPayload, onLowStock: () => void): KpiCard[] {
+function buildCards(
+  dashboard: DashboardPayload,
+  onLowStock: () => void,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): KpiCard[] {
   const { stock } = dashboard;
   return [
     {
       id: "today-inbound",
-      label: "Today's inbound",
+      label: t("todayInbound"),
       icon: "inbound",
       tint: "var(--primary-soft)",
       ink: "var(--primary-ink)",
       value: nf(dashboard.todayInbound),
       unit: "units",
-      note: deltaNote(dashboard.inboundDeltaPct, "First receipts of the day"),
+      note: deltaNote(dashboard.inboundDeltaPct, t("firstReceipts"), t),
       extra: (
         <span className="badge b-neutral">
           <span className="dot" />
-          {nf(dashboard.todayInboundCount)} receipts
+          {t("receipts", { n: nf(dashboard.todayInboundCount) })}
         </span>
       ),
     },
     {
       id: "today-outbound",
-      label: "Today's outbound",
+      label: t("todayOutbound"),
       icon: "outbound",
       tint: "var(--success-soft)",
       ink: "var(--success-ink)",
       value: nf(dashboard.todayOutbound),
       unit: "units",
-      note: deltaNote(dashboard.outboundDeltaPct, "No dispatches posted yet"),
+      note: deltaNote(dashboard.outboundDeltaPct, t("noDispatch"), t),
       extra: (
         <span className="badge b-neutral">
           <span className="dot" />
-          {nf(dashboard.todayOutboundCount)} issues
+          {t("issues", { n: nf(dashboard.todayOutboundCount) })}
         </span>
       ),
     },
     {
       id: "replenishment",
-      label: "Needs replenishment",
+      label: t("needsReplenishment"),
       icon: "alert",
       tint: "var(--warn-soft)",
       ink: "var(--warn-ink)",
       value: nf(stock.lowStock + stock.outOfStock),
       unit: "SKUs",
-      note: "At or below safety stock",
+      note: t("belowSafety"),
       extra: (
         <span className={cn("badge", stock.outOfStock ? "b-bad" : "b-warn")}>
           <span className="dot" />
-          {stock.outOfStock ? `${nf(stock.outOfStock)} out of stock` : "Action needed"}
+          {stock.outOfStock ? t("outOfStockN", { n: nf(stock.outOfStock) }) : t("actionNeeded")}
         </span>
       ),
       onClick: onLowStock,
     },
     {
       id: "on-hand",
-      label: "Stock on hand",
+      label: t("stockOnHand"),
       icon: "box",
       tint: "var(--primary-soft)",
       ink: "var(--primary-ink)",
       value: nf(stock.unitsOnHand),
       unit: "units",
-      note: `${nf(stock.skusInStock)} of ${nf(stock.totalSkus)} SKUs in stock`,
+      note: t("skuOf", { n: nf(stock.totalSkus) }),
     },
   ];
 }
 
 export function DashboardView() {
+  const t = useTranslations("app");
   const router = useRouter();
   const { dashboard, dashboardLoading, dashboardError, openDrawer } = useApp();
 
@@ -96,7 +102,7 @@ export function DashboardView() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Today&apos;s operations</h1>
+          <h1 className="page-title">{t("todayOpsTitle")}</h1>
           <p className="page-sub">
             {dashboard
               ? `${todayLabel} · số liệu tính từ 00:00 hôm nay`
@@ -105,7 +111,7 @@ export function DashboardView() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/reports" className="btn btn-sm">
-            Open reports
+            {t("openReports")}
           </Link>
           <button
             type="button"
@@ -113,7 +119,7 @@ export function DashboardView() {
             onClick={() => openDrawer("inbound")}
           >
             <Icon name="plus" size={14} stroke={2} />
-            New inbound
+            {t("newInbound")}
           </button>
         </div>
       </div>
@@ -121,7 +127,7 @@ export function DashboardView() {
       {dashboardError && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="empty">
-            <div className="empty-h">Could not load dashboard</div>
+            <div className="empty-h">{t("loadError")}</div>
             <p className="empty-p">{dashboardError}</p>
           </div>
         </div>
@@ -129,7 +135,7 @@ export function DashboardView() {
 
       <KpiGrid
         cards={
-          dashboard ? buildCards(dashboard, () => router.push("/inventory?status=low")) : null
+          dashboard ? buildCards(dashboard, () => router.push("/inventory?status=low"), t) : null
         }
       />
 
@@ -137,15 +143,15 @@ export function DashboardView() {
         <div className="card" data-od-id="replenishment-queue">
           <div className="card-head">
             <div>
-              <h2 className="section-title">Replenishment queue</h2>
+              <h2 className="section-title">{t("replenTitle")}</h2>
               <p className="section-sub">
                 {dashboard
-                  ? `${nf(dashboard.stock.lowStock + dashboard.stock.outOfStock)} SKUs at or below safety stock`
-                  : "At or below safety stock"}
+                  ? t("nSkusBelowSafety", { n: nf(dashboard.stock.lowStock + dashboard.stock.outOfStock) })
+                  : t("belowSafety")}
               </p>
             </div>
             <Link href="/inventory?status=low" className="pop-link">
-              View all
+              {t("viewAll")}
             </Link>
           </div>
 
@@ -158,8 +164,8 @@ export function DashboardView() {
 
           {dashboard && dashboard.alerts.length === 0 && (
             <div className="empty">
-              <div className="empty-h">Everything above safety stock</div>
-              <p className="empty-p">No replenishment needed right now.</p>
+              <div className="empty-h">{t("allAboveH")}</div>
+              <p className="empty-p">{t("allAboveP")}</p>
             </div>
           )}
 
@@ -176,14 +182,14 @@ export function DashboardView() {
                 </div>
                 <span className={cn("badge", meta.cls)}>
                   <span className="dot" />
-                  {meta.label}
+                  {t(meta.key)}
                 </span>
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
                   onClick={() => openDrawer("inbound", product.id)}
                 >
-                  Replenish
+                  {t("replenish")}
                 </button>
               </div>
             );
@@ -193,18 +199,18 @@ export function DashboardView() {
         <div className="card" data-od-id="recent-movements">
           <div className="card-head">
             <div>
-              <h2 className="section-title">Recent movements</h2>
-              <p className="section-sub">Last 6 posted transactions</p>
+              <h2 className="section-title">{t("recentTitle")}</h2>
+              <p className="section-sub">{t("recentSub")}</p>
             </div>
             <Link href="/movements" className="pop-link">
-              Audit log
+              {t("auditLog")}
             </Link>
           </div>
 
           {dashboard && dashboard.recentMovements.length === 0 && (
             <div className="empty">
-              <div className="empty-h">No movements yet</div>
-              <p className="empty-p">Post an inbound order to start the ledger.</p>
+              <div className="empty-h">{t("noMovementsH")}</div>
+              <p className="empty-p">{t("noMovementsP")}</p>
             </div>
           )}
 
@@ -219,7 +225,7 @@ export function DashboardView() {
                 <div className="list-main">
                   <div className="list-h">{movement.productName}</div>
                   <div className="list-p">
-                    {movement.reference} · {movement.reason ?? meta.label}
+                    {movement.reference} · {movement.reason ?? t(meta.key)}
                     {movement.operator ? ` · ${movement.operator}` : ""} ·{" "}
                     {fmtDateTime(movement.createdAt)}
                   </div>
@@ -249,8 +255,8 @@ export function DashboardView() {
       <div className="card" style={{ marginTop: 14 }} data-od-id="category-mix">
         <div className="card-head">
           <div>
-            <h2 className="section-title">Stock by category</h2>
-            <p className="section-sub">Units physically on hand right now</p>
+            <h2 className="section-title">{t("catTitle")}</h2>
+            <p className="section-sub">{t("catSub")}</p>
           </div>
         </div>
         <div className="chart-body">

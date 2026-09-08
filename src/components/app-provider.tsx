@@ -10,8 +10,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useSession } from "next-auth/react";
 import { useApi } from "@/lib/client";
-import type { CurrentUser, DashboardPayload } from "@/lib/types";
+import type { DashboardPayload } from "@/lib/types";
+import type { Role } from "@/lib/rbac";
 
 export type DrawerMode = "inbound" | "outbound" | "adjust" | "edit" | "history";
 
@@ -27,8 +29,10 @@ export type ToastItem = {
   body: string;
 };
 
+export type SessionUser = { id: string; name: string; email: string; role: Role };
+
 type AppContextValue = {
-  user: CurrentUser | null;
+  user: SessionUser | null;
   dashboard: DashboardPayload | null;
   dashboardLoading: boolean;
   dashboardError: string | null;
@@ -66,8 +70,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const toastSeq = useRef(0);
 
-  const me = useApi<{ data: CurrentUser | null }>("/api/me", 0);
-  const dashboard = useApi<DashboardPayload>("/api/dashboard", revision);
+  // Thông tin người dùng lấy thẳng từ session NextAuth, không cần gọi API riêng.
+  const { data: session } = useSession();
+  const user = useMemo<SessionUser | null>(
+    () =>
+      session?.user
+        ? {
+            id: session.user.id,
+            name: session.user.name ?? "",
+            email: session.user.email ?? "",
+            role: session.user.role,
+          }
+        : null,
+    [session],
+  );
+  const dashboard = useApi<DashboardPayload>(session?.user ? "/api/dashboard" : null, revision);
 
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
@@ -125,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppContextValue>(
     () => ({
-      user: me.data?.data ?? null,
+      user,
       dashboard: dashboard.data,
       dashboardLoading: dashboard.loading,
       dashboardError: dashboard.error,
@@ -146,7 +163,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCommandOpen,
     }),
     [
-      me.data,
+      user,
       dashboard.data,
       dashboard.loading,
       dashboard.error,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useApp } from "@/components/app-provider";
 import { FlowChart } from "@/components/dashboard/Charts";
 import { KpiGrid, Spark, type KpiCard } from "@/components/dashboard/KpiGrid";
@@ -34,60 +35,60 @@ function coverageLabel(days: number | null) {
  * Trang Phân tích chu kỳ (tài liệu mở rộng mục 1): toàn bộ số liệu đều thuộc
  * khoảng N ngày, nhãn ghi rõ "7-Day" để không nhầm với "Today" của Dashboard.
  */
-function buildCards(report: ReportPayload): KpiCard[] {
-  const label = `${report.range.days}-Day`;
+function buildCards(report: ReportPayload, t: (key: string, vars?: Record<string, string | number>) => string): KpiCard[] {
+  const days = report.range.days;
   return [
     {
       id: "period-inbound",
-      label: `${label} Inbound`,
+      label: t("periodInbound", { d: days }),
       icon: "inbound",
       tint: "var(--primary-soft)",
       ink: "var(--primary-ink)",
       value: nf(report.periodInbound),
-      unit: "units",
+      unit: t("unitsWord"),
       note: `${report.range.from} → ${report.range.to}`,
-      extra: <Spark values={report.flow.map((p) => p.in)} color="#4338CA" />,
+      extra: <Spark values={report.flow.map((p) => p.in)} color="var(--chart-in)" />,
     },
     {
       id: "period-outbound",
-      label: `${label} Outbound`,
+      label: t("periodOutbound", { d: days }),
       icon: "outbound",
       tint: "var(--success-soft)",
       ink: "var(--success-ink)",
       value: nf(report.periodOutbound),
-      unit: "units",
-      note: `${nf(Math.round(report.periodOutbound / report.range.days))} units/day on average`,
-      extra: <Spark values={report.flow.map((p) => p.out)} color="#059669" />,
+      unit: t("unitsWord"),
+      note: t("avgPerDay", { n: nf(Math.round(report.periodOutbound / days)) }),
+      extra: <Spark values={report.flow.map((p) => p.out)} color="var(--chart-out)" />,
     },
     {
       id: "period-net",
-      label: `${label} Net flow`,
+      label: t("periodNet", { d: days }),
       icon: "chart",
       tint: "var(--surface-2)",
       ink: "var(--fg-2)",
       value: `${report.periodNet >= 0 ? "+" : "−"}${nf(Math.abs(report.periodNet))}`,
-      unit: "units",
-      note: `${nf(report.activeSkus)} SKUs moved in the period`,
+      unit: t("unitsWord"),
+      note: t("nSkusMoved", { n: nf(report.activeSkus) }),
       extra: (
         <span className={cn("badge", report.periodNet >= 0 ? "b-info" : "b-warn")}>
           <span className="dot" />
-          {report.periodNet >= 0 ? "Stock building" : "Stock draining"}
+          {report.periodNet >= 0 ? t("stockBuilding") : t("stockDraining")}
         </span>
       ),
     },
     {
       id: "coverage-risk",
-      label: "Coverage risk",
+      label: t("coverTitle"),
       icon: "alert",
       tint: "var(--warn-soft)",
       ink: "var(--warn-ink)",
       value: nf(report.skusAtRisk),
       unit: "SKUs",
-      note: "Less than 7 days of cover left",
+      note: t("under7Days"),
       extra: (
         <span className={cn("badge", report.skusAtRisk ? "b-warn" : "b-ok")}>
           <span className="dot" />
-          {report.skusAtRisk ? "Reorder now" : "All covered"}
+          {report.skusAtRisk ? t("reorderNow") : t("allCovered")}
         </span>
       ),
     },
@@ -95,6 +96,7 @@ function buildCards(report: ReportPayload): KpiCard[] {
 }
 
 export function ReportsView() {
+  const t = useTranslations("app");
   const { revision } = useApp();
   const [days, setDays] = useState(7);
   const { data, error, loading } = useApi<ReportPayload>(`/api/reports?range=${days}d`, revision);
@@ -103,11 +105,11 @@ export function ReportsView() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Reports</h1>
+          <h1 className="page-title">{t("repTitle")}</h1>
           <p className="page-sub">
             {data
-              ? `Rolling ${data.range.days} days · ${data.range.from} → ${data.range.to}`
-              : "Throughput and stock-out forecast for the period"}
+              ? t("rollingDays", { d: data.range.days, a: data.range.from, b: data.range.to })
+              : t("repSub")}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -126,7 +128,7 @@ export function ReportsView() {
           {/* Tải thẳng từ server: GET /api/reports/export (tài liệu mở rộng mục 3). */}
           <a className="btn" href={`/api/reports/export?range=${days}d`} download>
             <Icon name="chart" size={14} stroke={1.9} />
-            Export CSV
+            {t("exportCsv")}
           </a>
         </div>
       </div>
@@ -134,29 +136,29 @@ export function ReportsView() {
       {error && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="empty">
-            <div className="empty-h">Could not load reports</div>
+            <div className="empty-h">{t("loadError")}</div>
             <p className="empty-p">{error}</p>
           </div>
         </div>
       )}
 
-      <KpiGrid cards={data ? buildCards(data) : null} />
+      <KpiGrid cards={data ? buildCards(data, t) : null} />
 
       <div className="grid-2">
         <div className="card">
           <div className="card-head">
             <div>
-              <h2 className="section-title">Daily throughput</h2>
-              <p className="section-sub">Units received and dispatched</p>
+              <h2 className="section-title">{t("thruTitle")}</h2>
+              <p className="section-sub">{t("thruSub")}</p>
             </div>
             <div className="legend">
               <span>
-                <i style={{ background: "#4338CA" }} />
-                Inbound
+                <i style={{ background: "var(--chart-in)" }} />
+                {t("inboundWord")}
               </span>
               <span>
-                <i style={{ background: "#059669" }} />
-                Outbound
+                <i style={{ background: "var(--chart-out)" }} />
+                {t("outboundWord")}
               </span>
             </div>
           </div>
@@ -172,15 +174,15 @@ export function ReportsView() {
         <div className="card" data-od-id="coverage-risk">
           <div className="card-head">
             <div>
-              <h2 className="section-title">Coverage risk</h2>
-              <p className="section-sub">On hand ÷ average daily burn rate</p>
+              <h2 className="section-title">{t("coverTitle")}</h2>
+              <p className="section-sub">{t("coverSub")}</p>
             </div>
           </div>
 
           {data && data.coverageRisk.length === 0 && (
             <div className="empty">
-              <div className="empty-h">No burn rate yet</div>
-              <p className="empty-p">Coverage appears once outbound orders are posted in the period.</p>
+              <div className="empty-h">{t("noBurnH")}</div>
+              <p className="empty-p">{t("noBurnP")}</p>
             </div>
           )}
 
@@ -212,12 +214,12 @@ export function ReportsView() {
       <div className="card" style={{ marginTop: 14 }} data-od-id="top-movers">
         <div className="card-head">
           <div>
-            <h2 className="section-title">Top movers</h2>
-            <p className="section-sub">Ranked by units moved in the period</p>
+            <h2 className="section-title">{t("moversTitle")}</h2>
+            <p className="section-sub">{t("moversSub")}</p>
           </div>
           {data && (
             <span className="pager-meta">
-              <b>{nf(data.activeSkus)}</b> SKUs moved
+              {t("nSkusMoved", { n: nf(data.activeSkus) })}
             </span>
           )}
         </div>
@@ -225,13 +227,13 @@ export function ReportsView() {
           <table>
             <thead>
               <tr>
-                <th style={{ width: 112 }}>SKU</th>
-                <th>Product</th>
-                <th style={{ width: 140 }}>Category</th>
-                <th style={{ width: 100, textAlign: "right" }}>In</th>
-                <th style={{ width: 100, textAlign: "right" }}>Out</th>
-                <th style={{ width: 110, textAlign: "right" }}>Net</th>
-                <th style={{ width: 120, textAlign: "right" }}>On hand</th>
+                <th style={{ width: 112 }}>{t("colSku")}</th>
+                <th>{t("colProductShort")}</th>
+                <th style={{ width: 140 }}>{t("colCategory")}</th>
+                <th style={{ width: 100, textAlign: "right" }}>{t("colIn")}</th>
+                <th style={{ width: 100, textAlign: "right" }}>{t("colOut")}</th>
+                <th style={{ width: 110, textAlign: "right" }}>{t("colNet")}</th>
+                <th style={{ width: 120, textAlign: "right" }}>{t("colOnHand")}</th>
               </tr>
             </thead>
             <tbody>
@@ -275,8 +277,8 @@ export function ReportsView() {
         </div>
         {data && data.topMovers.length === 0 && (
           <div className="empty">
-            <div className="empty-h">No movements in the period</div>
-            <p className="empty-p">Post an inbound or outbound order to build the ranking.</p>
+            <div className="empty-h">{t("noMovementsH")}</div>
+            <p className="empty-p">{t("noMovementsP")}</p>
           </div>
         )}
       </div>

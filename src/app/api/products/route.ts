@@ -8,6 +8,7 @@ import {
   readPagination,
   requireString,
 } from "@/lib/api";
+import { requireRole, requireSession } from "@/lib/guard";
 import { listCategories, listProducts } from "@/lib/inventory";
 import { prisma } from "@/lib/prisma";
 import type { ProductListResponse, StockStatus } from "@/lib/types";
@@ -22,6 +23,7 @@ const STATUSES: StockStatus[] = ["ok", "low", "out"];
  */
 export async function GET(request: NextRequest) {
   try {
+    await requireSession();
     const params = request.nextUrl.searchParams;
     const { page, limit, skip } = readPagination(params, { defaultLimit: 20 });
     const status = params.get("status");
@@ -55,6 +57,8 @@ export async function GET(request: NextRequest) {
 /** POST /api/products - tạo mã hàng hoá mới: { sku, name, unit, category?, safetyStock?, defaultBin? } */
 export async function POST(request: NextRequest) {
   try {
+    // Thêm SKU mới là quyền của MANAGER trở lên (ma trận RBAC mục 4).
+    await requireRole("MANAGER");
     const body = await readJsonBody(request);
     const sku = requireString(body, "sku").toUpperCase();
     const name = requireString(body, "name");

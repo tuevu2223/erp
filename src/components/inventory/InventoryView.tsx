@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useApp } from "@/components/app-provider";
 import { KpiGrid, type KpiCard } from "@/components/dashboard/KpiGrid";
@@ -14,70 +15,75 @@ import type { ProductListResponse, StockSnapshot, StockStatus } from "@/lib/type
 type SortKey = "sku" | "name" | "category" | "quantity" | "safetyStock";
 
 const STATUS_FILTERS: { value: StockStatus | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "ok", label: "In stock" },
-  { value: "low", label: "Low" },
-  { value: "out", label: "Out" },
+  { value: "all", label: "all" },
+  { value: "ok", label: "stIn" },
+  { value: "low", label: "stLow" },
+  { value: "out", label: "stOut" },
 ];
 
 const COLUMNS: { key: SortKey | "unit"; label: string; width?: number; align?: "right" }[] = [
-  { key: "sku", label: "SKU", width: 126 },
-  { key: "name", label: "Product name" },
-  { key: "category", label: "Category", width: 132 },
-  { key: "unit", label: "Unit", width: 64 },
-  { key: "quantity", label: "Current stock", width: 158, align: "right" },
-  { key: "safetyStock", label: "Safety", width: 98, align: "right" },
+  { key: "sku", label: "colSku", width: 126 },
+  { key: "name", label: "colProduct" },
+  { key: "category", label: "colCategory", width: 132 },
+  { key: "unit", label: "colUnit", width: 64 },
+  { key: "quantity", label: "colStock", width: 158, align: "right" },
+  { key: "safetyStock", label: "colSafety", width: 98, align: "right" },
 ];
 
 /** KPI của trang Inventory: trạng thái tồn kho hiện tại, không trùng Dashboard/Reports. */
-function stockCards(stock: StockSnapshot, onFilter: (status: StockStatus) => void): KpiCard[] {
+function stockCards(
+  stock: StockSnapshot,
+  onFilter: (status: StockStatus) => void,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): KpiCard[] {
   return [
     {
       id: "skus-in-stock",
-      label: "SKUs in stock",
+      label: t("kpiSkus"),
       icon: "box",
       tint: "var(--primary-soft)",
       ink: "var(--primary-ink)",
       value: nf(stock.skusInStock),
       unit: `/ ${nf(stock.totalSkus)}`,
-      note: `${nf(stock.unitsOnHand)} units on hand`,
+      note: t("unitsOnHand", { n: nf(stock.unitsOnHand) }),
     },
     {
       id: "low-stock",
-      label: "Low stock",
+      label: t("kpiLow"),
       icon: "alert",
       tint: "var(--warn-soft)",
       ink: "var(--warn-ink)",
       value: nf(stock.lowStock),
       unit: "SKUs",
-      note: "At or below safety stock",
+      note: t("belowSafety"),
       onClick: () => onFilter("low"),
     },
     {
       id: "out-of-stock",
-      label: "Out of stock",
+      label: t("stOut"),
       icon: "alert",
       tint: "var(--danger-soft)",
       ink: "var(--danger-ink)",
       value: nf(stock.outOfStock),
       unit: "SKUs",
-      note: "Zero on hand",
+      note: t("stOut"),
       onClick: () => onFilter("out"),
     },
     {
       id: "categories",
-      label: "Categories",
+      label: t("colCategory"),
       icon: "chart",
       tint: "var(--surface-2)",
       ink: "var(--fg-2)",
       value: nf(stock.totalSkus),
       unit: "SKUs",
-      note: "Across the whole catalogue",
+      note: t("invTitle"),
     },
   ];
 }
 
 export function InventoryView() {
+  const t = useTranslations("app");
   const searchParams = useSearchParams();
   const { revision, dashboard, openDrawer } = useApp();
 
@@ -153,11 +159,11 @@ export function InventoryView() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Inventory &amp; products</h1>
+          <h1 className="page-title">{t("invTitle")}</h1>
           <p className="page-sub">
             {data
-              ? `${nf(meta.total)} SKU${meta.total === 1 ? "" : "s"} match · master catalogue with on-hand positions`
-              : "Master catalogue with on-hand positions"}
+              ? t("invSubCount", { n: nf(meta.total) })
+              : t("invSubCount", { n: "…" })}
           </p>
         </div>
       </div>
@@ -168,7 +174,7 @@ export function InventoryView() {
             ? stockCards(dashboard.stock, (next) => {
                 setStatus(next);
                 setPage(1);
-              })
+              }, t)
             : null
         }
       />
@@ -186,8 +192,8 @@ export function InventoryView() {
                   setQ(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Filter by SKU or name"
-                aria-label="Filter products"
+                placeholder={t("invFilterPh")}
+                aria-label={t("invFilterPh")}
               />
             </div>
 
@@ -200,7 +206,7 @@ export function InventoryView() {
               }}
               aria-label="Filter by category"
             >
-              <option value="all">All categories</option>
+              <option value="all">{t("allCategories")}</option>
               {categories.map((item) => (
                 <option key={item}>{item}</option>
               ))}
@@ -217,13 +223,13 @@ export function InventoryView() {
                     setPage(1);
                   }}
                 >
-                  {item.label}
+                  {t(item.label)}
                 </button>
               ))}
             </div>
 
             <div className="field">
-              <span className="field-label">Updated</span>
+              <span className="field-label">{t("updated")}</span>
               <input
                 className="inp date"
                 type="date"
@@ -250,7 +256,7 @@ export function InventoryView() {
             </div>
 
             <button type="button" className="btn btn-sm btn-ghost" onClick={resetFilters}>
-              Reset
+              {t("reset")}
             </button>
           </div>
 
@@ -262,7 +268,7 @@ export function InventoryView() {
               data-od-id="cta-new-outbound"
             >
               <Icon name="minus" size={14} stroke={2.2} />
-              New outbound
+              {t("newOutbound")}
             </button>
             <button
               type="button"
@@ -271,14 +277,14 @@ export function InventoryView() {
               data-od-id="cta-new-inbound"
             >
               <Icon name="plus" size={14} stroke={2.2} />
-              New inbound
+              {t("newInbound")}
             </button>
           </div>
         </div>
 
         {error && (
           <div className="empty">
-            <div className="empty-h">Could not load inventory</div>
+            <div className="empty-h">{t("loadError")}</div>
             <p className="empty-p">{error}</p>
           </div>
         )}
@@ -312,7 +318,7 @@ export function InventoryView() {
                   {COLUMNS.map((column) =>
                     column.key === "unit" ? (
                       <th key="unit" style={{ width: 64 }}>
-                        Unit
+                        {t("colUnit")}
                       </th>
                     ) : (
                       <th
@@ -329,14 +335,14 @@ export function InventoryView() {
                         onClick={() => toggleSort(column.key as SortKey)}
                       >
                         <span className="th-in">
-                          {column.label}
+                          {t(column.label)}
                           <Icon name="chevronUp" size={11} stroke={2.4} className="caret" />
                         </span>
                       </th>
                     ),
                   )}
-                  <th style={{ width: 112 }}>Status</th>
-                  <th style={{ width: 104, textAlign: "right" }}>Actions</th>
+                  <th style={{ width: 112 }}>{t("colStatus")}</th>
+                  <th style={{ width: 104, textAlign: "right" }}>{t("colActions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -396,7 +402,7 @@ export function InventoryView() {
                       <td>
                         <span className={cn("badge", statusMeta.cls)}>
                           <span className="dot" />
-                          {statusMeta.label}
+                          {t(statusMeta.key)}
                         </span>
                       </td>
                       <td>
@@ -404,7 +410,7 @@ export function InventoryView() {
                           <button
                             type="button"
                             className="act"
-                            title="Adjust stock"
+                            title={t("adjustStock")}
                             aria-label={`Adjust stock for ${product.sku}`}
                             onClick={() => openDrawer("adjust", product.id)}
                           >
@@ -413,7 +419,7 @@ export function InventoryView() {
                           <button
                             type="button"
                             className="act"
-                            title="View history"
+                            title={t("viewHistory")}
                             aria-label={`View history for ${product.sku}`}
                             onClick={() => openDrawer("history", product.id)}
                           >
@@ -422,7 +428,7 @@ export function InventoryView() {
                           <button
                             type="button"
                             className="act"
-                            title="Edit product"
+                            title={t("editProduct")}
                             aria-label={`Edit ${product.sku}`}
                             onClick={() => openDrawer("edit", product.id)}
                           >
@@ -440,8 +446,8 @@ export function InventoryView() {
 
         {!error && !loading && rows.length === 0 && (
           <div className="empty">
-            <div className="empty-h">No products match these filters</div>
-            <p className="empty-p">Clear the status segment or widen the updated-date range.</p>
+            <div className="empty-h">{t("noProdH")}</div>
+            <p className="empty-p">{t("noProdP")}</p>
           </div>
         )}
 

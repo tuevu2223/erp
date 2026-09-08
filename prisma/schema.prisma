@@ -12,10 +12,24 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Phân quyền theo tài liệu kỹ thuật (mục 3 - users.role)
+/// Phân quyền 3 cấp (tài liệu Auth/RBAC mục 2)
 enum Role {
-  ADMIN
-  WAREHOUSE_STAFF
+  STAFF /// Nhân viên kho
+  MANAGER /// Quản lý kho
+  ADMIN /// Quản trị viên hệ thống
+}
+
+/// Tuỳ chọn giao diện sáng/tối của từng người dùng
+enum ThemePreference {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+/// Ngôn ngữ hiển thị của từng người dùng
+enum LanguagePreference {
+  EN
+  VI
 }
 
 /// Loại giao dịch kho (mục 3 - stock_movements.type)
@@ -26,12 +40,16 @@ enum MovementType {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
+  id           String             @id @default(cuid())
+  /// Cũng dùng làm tên đăng nhập (tài khoản gốc có email = "admin")
+  email        String             @unique
+  passwordHash String             @map("password_hash")
   name         String
-  role         Role     @default(WAREHOUSE_STAFF)
-  createdAt    DateTime @default(now()) @map("created_at")
+  role         Role               @default(STAFF)
+  theme        ThemePreference    @default(SYSTEM)
+  language     LanguagePreference @default(VI)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
 
   movements StockMovement[]
 

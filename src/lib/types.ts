@@ -4,6 +4,8 @@
  * generated client (file server-side) chỉ để lấy type.
  */
 
+import type { Role } from "@/lib/rbac";
+
 export type MovementType = "IMPORT" | "EXPORT" | "ADJUST";
 
 export type StockStatus = "ok" | "low" | "out";
@@ -159,7 +161,25 @@ export type CurrentUser = {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "WAREHOUSE_STAFF";
+  role: Role;
+  theme: ThemePreference;
+  language: LanguagePreference;
+};
+
+export type ThemePreference = "LIGHT" | "DARK" | "SYSTEM";
+export type LanguagePreference = "EN" | "VI";
+
+/** Một dòng trong trang quản lý người dùng (/users). */
+export type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+  /** true với chính tài khoản đang đăng nhập - hiển thị chip YOU. */
+  self: boolean;
+  /** Tài khoản quản trị gốc, không cho hạ quyền. */
+  locked: boolean;
 };
 
 export type ApiErrorBody = {

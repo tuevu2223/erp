@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useApp } from "@/components/app-provider";
 import { Icon } from "@/components/ui/Icon";
 import { Pager } from "@/components/ui/Pager";
@@ -10,13 +11,14 @@ import { cn } from "@/lib/utils";
 import type { MovementRow, MovementType, Paginated } from "@/lib/types";
 
 const TYPE_FILTERS: { value: MovementType | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "IMPORT", label: "Inbound" },
-  { value: "EXPORT", label: "Outbound" },
-  { value: "ADJUST", label: "Adjustment" },
+  { value: "all", label: "all" },
+  { value: "IMPORT", label: "tyIn" },
+  { value: "EXPORT", label: "tyOut" },
+  { value: "ADJUST", label: "tyAdj" },
 ];
 
 export function MovementsView() {
+  const t = useTranslations("app");
   const { revision } = useApp();
   const [q, setQ] = useState("");
   const [type, setType] = useState<MovementType | "all">("all");
@@ -39,8 +41,8 @@ export function MovementsView() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Stock movements</h1>
-          <p className="page-sub">Immutable audit log of every quantity change</p>
+          <h1 className="page-title">{t("mvTitle")}</h1>
+          <p className="page-sub">{t("mvSub")}</p>
         </div>
       </div>
 
@@ -56,8 +58,8 @@ export function MovementsView() {
                 setQ(event.target.value);
                 setPage(1);
               }}
-              placeholder="Filter by SKU, partner or user"
-              aria-label="Filter movements"
+              placeholder={t("mvFilterPh")}
+              aria-label={t("mvFilterPh")}
             />
           </div>
 
@@ -72,20 +74,20 @@ export function MovementsView() {
                   setPage(1);
                 }}
               >
-                {item.label}
+                {t(item.label)}
               </button>
             ))}
           </div>
 
           <div className="spacer" />
           <span className="pager-meta">
-            <b>{nf(meta.total)}</b> transactions
+            {t("nTransactions", { n: nf(meta.total) })}
           </span>
         </div>
 
         {error && (
           <div className="empty">
-            <div className="empty-h">Could not load the audit log</div>
+            <div className="empty-h">{t("loadError")}</div>
             <p className="empty-p">{error}</p>
           </div>
         )}
@@ -95,15 +97,15 @@ export function MovementsView() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 150 }}>Timestamp</th>
-                  <th style={{ width: 112 }}>SKU</th>
-                  <th>Product</th>
-                  <th style={{ width: 110 }}>Type</th>
-                  <th style={{ width: 96 }}>Reason</th>
-                  <th style={{ width: 92, textAlign: "right" }}>Δ Qty</th>
-                  <th style={{ width: 104, textAlign: "right" }}>Balance</th>
-                  <th style={{ width: 118 }}>Operator</th>
-                  <th style={{ width: 112 }}>Reference</th>
+                  <th style={{ width: 150 }}>{t("colTs")}</th>
+                  <th style={{ width: 112 }}>{t("colSku")}</th>
+                  <th>{t("colProductShort")}</th>
+                  <th style={{ width: 110 }}>{t("colType")}</th>
+                  <th style={{ width: 96 }}>{t("colReason")}</th>
+                  <th style={{ width: 92, textAlign: "right" }}>{t("colDelta")}</th>
+                  <th style={{ width: 104, textAlign: "right" }}>{t("colBalance")}</th>
+                  <th style={{ width: 118 }}>{t("colOperator")}</th>
+                  <th style={{ width: 112 }}>{t("colRef")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,7 +131,7 @@ export function MovementsView() {
                       <td>
                         <span className={cn("badge", meta.cls)}>
                           <span className="dot" />
-                          {meta.label}
+                          {t(meta.key)}
                         </span>
                       </td>
                       <td>
@@ -160,8 +162,8 @@ export function MovementsView() {
 
         {!error && !loading && rows.length === 0 && (
           <div className="empty">
-            <div className="empty-h">No transactions match this filter</div>
-            <p className="empty-p">Clear the search box or switch back to “All”.</p>
+            <div className="empty-h">{t("noProdH")}</div>
+            <p className="empty-p">{t("noProdP")}</p>
           </div>
         )}
 

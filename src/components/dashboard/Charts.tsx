@@ -32,7 +32,7 @@ export function FlowChart({ points, height = 190 }: { points: FlowPoint[]; heigh
                 left: 46,
                 right: 0,
                 top: y,
-                borderTop: `1px solid ${index ? "#E2E8F0" : "#CBD5E1"}`,
+                borderTop: `1px solid ${index ? "var(--border)" : "var(--border-strong)"}`,
               }}
             />
             <div
@@ -45,7 +45,7 @@ export function FlowChart({ points, height = 190 }: { points: FlowPoint[]; heigh
                 textAlign: "right",
                 fontSize: 9.5,
                 lineHeight: "14px",
-                color: "#94A3B8",
+                color: "var(--subtle)",
               }}
             >
               {nf(step * index)}
@@ -78,7 +78,7 @@ export function FlowChart({ points, height = 190 }: { points: FlowPoint[]; heigh
                     display: "block",
                     width: 13,
                     height: hIn,
-                    background: "#4338CA",
+                    background: "var(--chart-in)",
                     borderRadius: "2.5px 2.5px 0 0",
                   }}
                 />
@@ -88,7 +88,7 @@ export function FlowChart({ points, height = 190 }: { points: FlowPoint[]; heigh
                     display: "block",
                     width: 13,
                     height: hOut,
-                    background: "#059669",
+                    background: "var(--chart-out)",
                     borderRadius: "2.5px 2.5px 0 0",
                   }}
                 />
@@ -98,7 +98,7 @@ export function FlowChart({ points, height = 190 }: { points: FlowPoint[]; heigh
                   fontSize: 10.5,
                   lineHeight: 1,
                   fontWeight: isToday ? 600 : 400,
-                  color: isToday ? "#0F172A" : "#94A3B8",
+                  color: isToday ? "var(--fg)" : "var(--subtle)",
                 }}
               >
                 {isToday ? "Today" : fmtDate(`${point.date}T00:00:00`)}

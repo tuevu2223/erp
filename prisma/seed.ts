@@ -6,14 +6,15 @@
  * ngược từ tồn kho hiện tại nên mọi balance_after đều >= 0 và khớp với tồn cuối.
  */
 import "dotenv/config";
-import { randomBytes, scryptSync } from "node:crypto";
+import bcrypt from "bcryptjs";
 import type { MovementType } from "../src/generated/prisma/client";
 import { prisma } from "../src/lib/prisma";
 
-function hashPassword(plain: string) {
-  const salt = randomBytes(16).toString("hex");
-  return `scrypt$${salt}$${scryptSync(plain, salt, 64).toString("hex")}`;
-}
+/** Băm mật khẩu bằng bcrypt cost 10 (tài liệu Auth/RBAC mục 3). */
+const hashPassword = (plain: string) => bcrypt.hash(plain, 10);
+
+/** Mật khẩu dùng chung cho mọi tài khoản demo - chỉ dùng cho môi trường phát triển. */
+const DEMO_PASSWORD = "123";
 
 // [sku, name, category, unit, stock, safety, bin]
 type CatalogueRow = [string, string, string, string, number, number, string];
@@ -93,18 +94,20 @@ async function main() {
   await prisma.user.deleteMany();
 
   console.log("• Tạo người dùng…");
+  // Tài khoản quản trị gốc theo tài liệu Auth/RBAC mục 3: đăng nhập "admin" / "123".
   const seedUsers = [
+    { email: "admin", name: "System Administrator", role: "ADMIN" as const },
     { email: "tuevu@northport.ops", name: "Tue Vu", role: "ADMIN" as const },
-    { email: "lpham@northport.ops", name: "L. Pham", role: "WAREHOUSE_STAFF" as const },
-    { email: "hnguyen@northport.ops", name: "H. Nguyen", role: "WAREHOUSE_STAFF" as const },
-    { email: "mtran@northport.ops", name: "M. Tran", role: "WAREHOUSE_STAFF" as const },
-    { email: "dle@northport.ops", name: "D. Le", role: "WAREHOUSE_STAFF" as const },
+    { email: "lpham@northport.ops", name: "L. Pham", role: "MANAGER" as const },
+    { email: "hnguyen@northport.ops", name: "H. Nguyen", role: "MANAGER" as const },
+    { email: "mtran@northport.ops", name: "M. Tran", role: "STAFF" as const },
+    { email: "dle@northport.ops", name: "D. Le", role: "STAFF" as const },
   ];
   const users = [];
   for (const user of seedUsers) {
     users.push(
       await prisma.user.create({
-        data: { ...user, passwordHash: hashPassword("wms-demo-2026") },
+        data: { ...user, passwordHash: await hashPassword(DEMO_PASSWORD) },
       }),
     );
   }
@@ -165,7 +168,8 @@ async function main() {
         reason,
         partner:
           type === "IMPORT" ? pick(PARTNERS_IN) : type === "EXPORT" ? pick(PARTNERS_OUT) : null,
-        operator: Math.floor(rnd() * seedUsers.length),
+        // Bỏ qua tài khoản quản trị gốc (index 0) - phiếu kho do nhân sự vận hành ghi.
+        operator: 1 + Math.floor(rnd() * (seedUsers.length - 1)),
       });
     }
   }

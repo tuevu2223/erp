@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useApp } from "@/components/app-provider";
@@ -19,16 +20,17 @@ type Row = {
 };
 
 const PAGES: { href: Route; label: string; icon: IconName }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/inventory", label: "Inventory", icon: "box" },
-  { href: "/inbound", label: "Inbound", icon: "inbound" },
-  { href: "/outbound", label: "Outbound", icon: "outbound" },
-  { href: "/movements", label: "Stock movements", icon: "log" },
-  { href: "/reports", label: "Reports", icon: "chart" },
-  { href: "/settings", label: "Settings", icon: "gear" },
+  { href: "/dashboard", label: "navDashboard", icon: "dashboard" },
+  { href: "/inventory", label: "navInventory", icon: "box" },
+  { href: "/inbound", label: "navInbound", icon: "inbound" },
+  { href: "/outbound", label: "navOutbound", icon: "outbound" },
+  { href: "/movements", label: "navMovements", icon: "log" },
+  { href: "/reports", label: "navReports", icon: "chart" },
+  { href: "/settings", label: "navSettings", icon: "gear" },
 ];
 
 export function CommandPalette() {
+  const t = useTranslations("app");
   const router = useRouter();
   const { commandOpen, setCommandOpen, openDrawer, revision } = useApp();
   const [query, setQuery] = useState("");
@@ -57,50 +59,50 @@ export function CommandPalette() {
     const q = trimmed.toLowerCase();
     const allActions: Row[] = [
       {
-        group: "Actions",
-        title: "Create inbound order",
-        sub: "Receive stock into a bin",
+        group: t("cgActions"),
+        title: t("cmdInbound"),
+        sub: t("cmdInboundSub"),
         icon: "inbound",
         run: () => openDrawer("inbound"),
       },
       {
-        group: "Actions",
-        title: "Create outbound order",
-        sub: "Issue stock for a pick",
+        group: t("cgActions"),
+        title: t("cmdOutbound"),
+        sub: t("cmdOutboundSub"),
         icon: "outbound",
         run: () => openDrawer("outbound"),
       },
       {
-        group: "Actions",
-        title: "Show low-stock SKUs",
-        sub: "Filter inventory by replenishment",
+        group: t("cgActions"),
+        title: t("cmdLow"),
+        sub: t("cmdLowSub"),
         icon: "alert",
         run: () => router.push("/inventory?status=low"),
       },
     ];
     const actions = allActions.filter((row) => !q || row.title.toLowerCase().includes(q));
 
-    const pages: Row[] = PAGES.filter((page) => !q || page.label.toLowerCase().includes(q)).map(
+    const pages: Row[] = PAGES.filter((page) => !q || t(page.label).toLowerCase().includes(q)).map(
       (page) => ({
-        group: "Navigate",
-        title: page.label,
-        sub: `Go to ${page.label.toLowerCase()}`,
+        group: t("cgNavigate"),
+        title: t(page.label),
+        sub: t("cmdGoTo", { x: page.label }),
         icon: page.icon,
         run: () => router.push(page.href),
       }),
     );
 
     const products: Row[] = (search.data?.data ?? []).slice(0, 8).map((product) => ({
-      group: "Products",
+      group: t("cgProducts"),
       title: product.name,
       sub: `${product.sku} · ${nf(product.quantity)} ${product.unit}`,
       icon: "box",
-      tail: STATUS_META[product.status].label,
+      tail: t(STATUS_META[product.status].key),
       run: () => openDrawer("history", product.id),
     }));
 
     return [...actions, ...pages, ...products];
-  }, [trimmed, search.data, openDrawer, router]);
+  }, [trimmed, search.data, openDrawer, router, t]);
 
   const maxIndex = Math.max(0, rows.length - 1);
   const activeIndex = Math.min(active, maxIndex);
@@ -155,7 +157,7 @@ export function CommandPalette() {
     >
       <div className="cmdk">
         <div className="cmdk-in">
-          <Icon name="search" size={17} stroke={1.8} style={{ color: "#94A3B8" }} />
+          <Icon name="search" size={17} stroke={1.8} style={{ color: "var(--subtle)" }} />
           <input
             autoFocus
             value={query}
@@ -163,7 +165,7 @@ export function CommandPalette() {
               setQuery(event.target.value);
               setActive(0);
             }}
-            placeholder="Search SKUs, pages and actions…"
+            placeholder={t("cmdkPh")}
             autoComplete="off"
             spellCheck={false}
             aria-label="Search"
@@ -174,9 +176,9 @@ export function CommandPalette() {
         <div className="cmdk-list" ref={listRef}>
           {rows.length === 0 && (
             <div className="empty" style={{ padding: "34px 20px" }}>
-              <div className="empty-h">No matches</div>
+              <div className="empty-h">{t("noMatches")}</div>
               <p className="empty-p">
-                Try a SKU prefix such as <span className="num">SKU-EL</span>.
+                {t("tryPrefix")} <span className="num">SKU-EL</span>.
               </p>
             </div>
           )}
@@ -214,13 +216,13 @@ export function CommandPalette() {
 
         <div className="cmdk-foot">
           <span>
-            <kbd className="kbd">↑↓</kbd> navigate
+            <kbd className="kbd">↑↓</kbd> {t("kNav")}
           </span>
           <span>
-            <kbd className="kbd">↵</kbd> open
+            <kbd className="kbd">↵</kbd> {t("kOpen")}
           </span>
           <span>
-            <kbd className="kbd">ESC</kbd> dismiss
+            <kbd className="kbd">ESC</kbd> {t("kDismiss")}
           </span>
         </div>
       </div>

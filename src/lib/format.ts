@@ -1,3 +1,4 @@
+import type { Role } from "@/lib/rbac";
 import type { MovementType, StockStatus } from "@/lib/types";
 
 /** Định dạng số giống prototype: nhóm hàng nghìn theo en-US. */
@@ -29,32 +30,32 @@ export function fmtRelative(value: string | Date): string {
   return days === 1 ? "Yesterday" : `${days}d`;
 }
 
-export const STATUS_META: Record<StockStatus, { label: string; cls: string; color: string }> = {
-  ok: { label: "In stock", cls: "b-ok", color: "#059669" },
-  low: { label: "Low stock", cls: "b-warn", color: "#D97706" },
-  out: { label: "Out of stock", cls: "b-bad", color: "#E11D48" },
+export const STATUS_META: Record<StockStatus, { key: string; cls: string; color: string }> = {
+  ok: { key: "stIn", cls: "b-ok", color: "var(--mark-ok)" },
+  low: { key: "stLow", cls: "b-warn", color: "var(--mark-warn)" },
+  out: { key: "stOut", cls: "b-bad", color: "var(--mark-bad)" },
 };
 
 export const MOVEMENT_META: Record<
   MovementType,
-  { label: string; cls: string; icon: "inbound" | "outbound" | "sliders"; tint: string; ink: string }
+  { key: string; cls: string; icon: "inbound" | "outbound" | "sliders"; tint: string; ink: string }
 > = {
   IMPORT: {
-    label: "Inbound",
+    key: "tyIn",
     cls: "b-info",
     icon: "inbound",
     tint: "var(--primary-soft)",
     ink: "var(--primary-ink)",
   },
   EXPORT: {
-    label: "Outbound",
+    key: "tyOut",
     cls: "b-ok",
     icon: "outbound",
     tint: "var(--success-soft)",
     ink: "var(--success-ink)",
   },
   ADJUST: {
-    label: "Adjustment",
+    key: "tyAdj",
     cls: "b-warn",
     icon: "sliders",
     tint: "var(--warn-soft)",
@@ -76,6 +77,12 @@ export function initials(name: string): string {
     .join("");
 }
 
-export function roleLabel(role: "ADMIN" | "WAREHOUSE_STAFF"): string {
-  return role === "ADMIN" ? "Administrator" : "Warehouse staff";
+const ROLE_LABEL: Record<Role, string> = {
+  ADMIN: "Administrator",
+  MANAGER: "Warehouse manager",
+  STAFF: "Warehouse staff",
+};
+
+export function roleLabel(role: Role): string {
+  return ROLE_LABEL[role] ?? role;
 }

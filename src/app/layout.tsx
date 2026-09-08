@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
-import { AppShell } from "@/components/layout/AppShell";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 // Ba họ chữ của bản thiết kế: Inter (giao diện), Archivo (tiêu đề), JetBrains Mono (số liệu).
@@ -17,19 +19,22 @@ export const metadata: Metadata = {
   description: "Hệ thống quản trị kho bãi ERP: hàng hoá, nhập kho, xuất kho và tồn kho thực tế.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+
   return (
-    // suppressHydrationWarning chỉ áp cho thuộc tính của chính thẻ <html>:
-    // các extension trình duyệt (dịch trang, dark mode, trợ lý viết…) hay chèn thêm
-    // class/attribute vào <html> trước khi React hydrate, gây cảnh báo mismatch giả.
+    // suppressHydrationWarning cần cho next-themes (nó gắn data-theme lên <html>
+    // trước khi React hydrate) và cũng che cảnh báo giả do extension trình duyệt.
     // Mọi mismatch thật bên trong <body> vẫn được React báo bình thường.
     <html
-      lang="en"
+      lang={locale}
       className={`${inter.variable} ${archivo.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <body>
-        <AppShell>{children}</AppShell>
+        <NextIntlClientProvider>
+          <Providers>{children}</Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useApp } from "@/components/app-provider";
 
 type Settings = {
@@ -37,6 +38,7 @@ const STORAGE_KEY = "wms.settings";
  * (không cho tồn kho âm) được khoá lại thay vì cho bật/tắt giả.
  */
 export function SettingsView() {
+  const t = useTranslations("app");
   const { toast } = useApp();
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
 
@@ -59,8 +61,8 @@ export function SettingsView() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
       toast({
         kind: "ok",
-        title: "Settings saved",
-        body: "Warehouse profile and stock policy updated on this device.",
+        title: t("settingsSaved"),
+        body: t("settingsSavedP"),
       });
     } catch {
       toast({
@@ -75,27 +77,27 @@ export function SettingsView() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-sub">Warehouse profile, stock policy and alerting</p>
+          <h1 className="page-title">{t("setTitle")}</h1>
+          <p className="page-sub">{t("setSub")}</p>
         </div>
         <button type="button" className="btn btn-primary" onClick={save}>
-          Save changes
+          {t("saveChanges")}
         </button>
       </div>
 
       <div className="card">
         <div className="set-grid">
           <div>
-            <div className="set-h">Warehouse profile</div>
+            <div className="set-h">{t("setWhH")}</div>
             <p className="set-p">
-              Identity used on receipts, packing lists and printed documents.
+              {t("setWhP")}
             </p>
           </div>
           <div>
             <div className="form-row">
               <div className="form-field">
                 <label className="form-label" htmlFor="setName">
-                  Display name
+                  {t("fDisplayName")}
                 </label>
                 <input
                   className="inp"
@@ -106,7 +108,7 @@ export function SettingsView() {
               </div>
               <div className="form-field">
                 <label className="form-label" htmlFor="setCode">
-                  Code
+                  {t("fCode")}
                 </label>
                 <input
                   className="inp"
@@ -120,7 +122,7 @@ export function SettingsView() {
             <div className="form-row">
               <div className="form-field">
                 <label className="form-label" htmlFor="setTz">
-                  Timezone
+                  {t("fTz")}
                 </label>
                 <select
                   className="sel"
@@ -135,7 +137,7 @@ export function SettingsView() {
               </div>
               <div className="form-field">
                 <label className="form-label" htmlFor="setBins">
-                  Total bins
+                  {t("fBins")}
                 </label>
                 <input
                   className="inp"
@@ -151,16 +153,16 @@ export function SettingsView() {
 
         <div className="set-grid">
           <div>
-            <div className="set-h">Stock policy</div>
+            <div className="set-h">{t("setPolH")}</div>
             <p className="set-p">
-              Controls when a SKU is flagged for replenishment and how adjustments are approved.
+              {t("setPolP")}
             </p>
           </div>
           <div>
             <div className="form-row">
               <div className="form-field">
                 <label className="form-label" htmlFor="setLead">
-                  Default lead time
+                  {t("fLead")}
                 </label>
                 <input
                   className="inp"
@@ -168,11 +170,11 @@ export function SettingsView() {
                   value={settings.leadTime}
                   onChange={(event) => update("leadTime", event.target.value)}
                 />
-                <span className="form-hint">Used to project days of cover.</span>
+                <span className="form-hint">{t("hLead")}</span>
               </div>
               <div className="form-field">
                 <label className="form-label" htmlFor="setThresh">
-                  Low-stock trigger
+                  {t("fTrigger")}
                 </label>
                 <select
                   className="sel"
@@ -192,8 +194,8 @@ export function SettingsView() {
 
             <div className="switch-row">
               <div>
-                <div className="form-label">Require reason code on every adjustment</div>
-                <span className="form-hint">Blocks submission until a reason is selected.</span>
+                <div className="form-label">{t("swReason")}</div>
+                <span className="form-hint">{t("hReason")}</span>
               </div>
               <button
                 type="button"
@@ -207,7 +209,7 @@ export function SettingsView() {
 
             <div className="switch-row">
               <div>
-                <div className="form-label">Allow negative on-hand</div>
+                <div className="form-label">{t("swNeg")}</div>
                 <span className="form-hint">
                   Enforced by the API: an outbound order can never exceed available stock.
                 </span>
@@ -227,14 +229,14 @@ export function SettingsView() {
 
         <div className="set-grid">
           <div>
-            <div className="set-h">Notifications</div>
-            <p className="set-p">Where replenishment and exception alerts are delivered.</p>
+            <div className="set-h">{t("setNotH")}</div>
+            <p className="set-p">{t("setNotP")}</p>
           </div>
           <div>
             <div className="switch-row">
               <div>
-                <div className="form-label">Low-stock digest</div>
-                <span className="form-hint">Daily at 07:00 local time.</span>
+                <div className="form-label">{t("swDigest")}</div>
+                <span className="form-hint">{t("hDigest")}</span>
               </div>
               <button
                 type="button"
@@ -247,8 +249,8 @@ export function SettingsView() {
             </div>
             <div className="switch-row">
               <div>
-                <div className="form-label">Out-of-stock alert</div>
-                <span className="form-hint">Immediate, on every depletion event.</span>
+                <div className="form-label">{t("swOos")}</div>
+                <span className="form-hint">{t("hOos")}</span>
               </div>
               <button
                 type="button"
@@ -261,8 +263,8 @@ export function SettingsView() {
             </div>
             <div className="switch-row">
               <div>
-                <div className="form-label">Cycle count reminders</div>
-                <span className="form-hint">Weekly, per storage zone.</span>
+                <div className="form-label">{t("swCycle")}</div>
+                <span className="form-hint">{t("hCycle")}</span>
               </div>
               <button
                 type="button"

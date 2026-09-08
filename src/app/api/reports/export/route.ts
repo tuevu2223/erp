@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { handleApiError } from "@/lib/api";
 import { computeReports } from "@/lib/analytics";
+import { requireRole } from "@/lib/guard";
 import { parseRange } from "@/app/api/reports/route";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ function csvCell(value: string | number): string {
  */
 export async function GET(request: NextRequest) {
   try {
+    await requireRole("MANAGER");
     const days = parseRange(request.nextUrl.searchParams.get("range"));
     const report = await computeReports(days);
 

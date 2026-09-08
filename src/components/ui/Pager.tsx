@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { nf } from "@/lib/format";
 import type { PageMeta } from "@/lib/types";
 
@@ -24,18 +25,19 @@ function pageList(current: number, total: number): (number | "gap")[] {
 }
 
 export function Pager({ meta, onPage, onLimit, selectedCount = 0 }: PagerProps) {
+  const t = useTranslations("app");
   const start = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
   const end = Math.min(meta.page * meta.limit, meta.total);
 
   return (
     <div className="pager" data-od-id="inventory-pagination">
       <div className="field">
-        <span className="field-label">Rows</span>
+        <span className="field-label">{t("rows")}</span>
         <select
           className="sel"
           value={meta.limit}
           onChange={(event) => onLimit(Number(event.target.value))}
-          aria-label="Rows per page"
+          aria-label={t("rows")}
         >
           {PER_PAGE_OPTIONS.map((option) => (
             <option key={option} value={option}>
@@ -47,19 +49,18 @@ export function Pager({ meta, onPage, onLimit, selectedCount = 0 }: PagerProps) 
 
       <div className="pager-meta">
         {meta.total === 0 ? (
-          "No records"
+          t("noRecords")
         ) : (
           <>
-            <b>
-              {nf(start)}–{nf(end)}
-            </b>{" "}
-            of <b>{nf(meta.total)}</b> records
+            {t("recordRange", { a: nf(start), b: nf(end), t: nf(meta.total) })}
           </>
         )}
       </div>
 
       <div className="spacer" />
-      <div className="pager-meta">{selectedCount > 0 ? `${selectedCount} selected` : ""}</div>
+      <div className="pager-meta">
+        {selectedCount > 0 ? t("nSelected", { n: selectedCount }) : ""}
+      </div>
 
       <div className="pg-btns">
         <button
@@ -67,7 +68,7 @@ export function Pager({ meta, onPage, onLimit, selectedCount = 0 }: PagerProps) 
           className="pg"
           disabled={meta.page <= 1}
           onClick={() => onPage(meta.page - 1)}
-          aria-label="Previous page"
+          aria-label={t("prevPage")}
         >
           ‹
         </button>
@@ -83,7 +84,7 @@ export function Pager({ meta, onPage, onLimit, selectedCount = 0 }: PagerProps) 
               className="pg"
               aria-current={item === meta.page ? "page" : undefined}
               onClick={() => onPage(item)}
-              aria-label={`Page ${item}`}
+              aria-label={t("pageN", { n: item })}
             >
               {item}
             </button>
@@ -94,7 +95,7 @@ export function Pager({ meta, onPage, onLimit, selectedCount = 0 }: PagerProps) 
           className="pg"
           disabled={meta.page >= meta.totalPages}
           onClick={() => onPage(meta.page + 1)}
-          aria-label="Next page"
+          aria-label={t("nextPage")}
         >
           ›
         </button>

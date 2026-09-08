@@ -3,19 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useApp } from "@/components/app-provider";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { fmtRelative, initials, roleLabel } from "@/lib/format";
+import { fmtRelative, initials } from "@/lib/format";
+import { atLeast } from "@/lib/rbac";
 import type { AlertKind } from "@/lib/types";
 
-const CRUMBS: Record<string, { root: string; label: string }> = {
-  "/dashboard": { root: "Operations", label: "Today's operations" },
-  "/inventory": { root: "Operations", label: "Inventory" },
-  "/inbound": { root: "Movements", label: "Inbound" },
-  "/outbound": { root: "Movements", label: "Outbound" },
-  "/movements": { root: "Movements", label: "Stock movements" },
-  "/reports": { root: "Insight", label: "Reports" },
-  "/settings": { root: "Insight", label: "Settings" },
+const CRUMBS: Record<string, { rootKey: string; labelKey: string }> = {
+  "/dashboard": { rootKey: "grpOperations", labelKey: "todayOpsTitle" },
+  "/inventory": { rootKey: "grpOperations", labelKey: "navInventory" },
+  "/inbound": { rootKey: "grpMovements", labelKey: "navInbound" },
+  "/outbound": { rootKey: "grpMovements", labelKey: "navOutbound" },
+  "/movements": { rootKey: "grpMovements", labelKey: "navMovements" },
+  "/reports": { rootKey: "grpInsight", labelKey: "navReports" },
+  "/users": { rootKey: "grpAdmin", labelKey: "navUsers" },
+  "/settings": { rootKey: "grpAdmin", labelKey: "navSettings" },
 };
 
 const ALERT_TINT: Record<AlertKind, { bg: string; fg: string; icon: IconName }> = {
@@ -25,18 +31,21 @@ const ALERT_TINT: Record<AlertKind, { bg: string; fg: string; icon: IconName }> 
   ok: { bg: "var(--success-soft)", fg: "var(--success-ink)", icon: "check" },
 };
 
+const ROLE_KEY = { ADMIN: "roleAdmin", MANAGER: "roleManager", STAFF: "roleStaff" } as const;
+
 type OpenPop = "bell" | "user" | null;
 
 export function Topbar() {
+  const t = useTranslations("app");
   const pathname = usePathname();
   const { dashboard, user, setCommandOpen, setRailOpen, railOpen } = useApp();
   const [openPop, setOpenPop] = useState<OpenPop>(null);
-  const [readAt, setReadAt] = useState<number | null>(null);
+  const [readAll, setReadAll] = useState(false);
   const rightRef = useRef<HTMLDivElement>(null);
 
-  const crumb = CRUMBS[pathname] ?? { root: "Operations", label: "WMS" };
+  const crumb = CRUMBS[pathname] ?? { rootKey: "grpOperations", labelKey: "navDashboard" };
   const alerts = dashboard?.notifications ?? [];
-  const unread = readAt === null ? alerts.length : 0;
+  const unread = readAll ? 0 : alerts.length;
 
   useEffect(() => {
     if (!openPop) return;
@@ -67,30 +76,34 @@ export function Topbar() {
       </button>
 
       <div className="crumb">
-        <span className="crumb-root">{crumb.root}</span>
+        <span className="crumb-root">{t(crumb.rootKey)}</span>
         <span className="crumb-sep">/</span>
-        <span className="crumb-cur">{crumb.label}</span>
+        <span className="crumb-cur">{t(crumb.labelKey)}</span>
       </div>
 
       <button
         type="button"
         className="searchbar"
         onClick={() => setCommandOpen(true)}
-        aria-label="Open global search"
+        aria-label={t("searchPh")}
         data-od-id="global-search"
       >
         <Icon name="search" size={14} stroke={1.9} />
-        <span>Search SKUs, movements, pages…</span>
+        <span>{t("searchPh")}</span>
         <kbd className="kbd">⌘K</kbd>
       </button>
 
       <div className="top-right" ref={rightRef}>
+        <LanguageSwitcher />
+        <ThemeSwitcher />
+        <span className="top-sep" aria-hidden="true" />
+
         <div style={{ position: "relative" }}>
           <button
             type="button"
             className="icon-btn"
             onClick={() => setOpenPop(openPop === "bell" ? null : "bell")}
-            aria-label="Notifications"
+            aria-label={t("notifications")}
             aria-expanded={openPop === "bell"}
             data-od-id="notifications-bell"
           >
@@ -99,20 +112,20 @@ export function Topbar() {
           </button>
 
           {openPop === "bell" && (
-            <div className="pop" style={{ right: 0, top: 38, width: 344 }}>
+            <div className="pop open" style={{ right: 0, top: 38, width: 344 }}>
               <div className="pop-head">
                 <span className="pop-title">
-                  Notifications {unread ? `· ${unread} new` : ""}
+                  {t("notifications")} {unread ? `· ${t("newCount", { n: unread })}` : ""}
                 </span>
-                <button type="button" className="pop-link" onClick={() => setReadAt(Date.now())}>
-                  Mark all read
+                <button type="button" className="pop-link" onClick={() => setReadAll(true)}>
+                  {t("markAllRead")}
                 </button>
               </div>
               <div className="pop-body">
                 {alerts.length === 0 && (
                   <div className="empty" style={{ padding: "28px 16px" }}>
-                    <div className="empty-h">Nothing to flag</div>
-                    <p className="empty-p">Every SKU is above its safety stock.</p>
+                    <div className="empty-h">{t("allAboveH")}</div>
+                    <p className="empty-p">{t("allAboveP")}</p>
                   </div>
                 )}
                 {alerts.map((alert) => {
@@ -127,7 +140,7 @@ export function Topbar() {
                         <span className="pop-p">{alert.body}</span>
                       </span>
                       <span className="pop-t">{fmtRelative(alert.at)}</span>
-                      {readAt === null && <span className="unread-dot" />}
+                      {!readAll && <span className="unread-dot" />}
                     </div>
                   );
                 })}
@@ -139,7 +152,7 @@ export function Topbar() {
                   style={{ padding: 0 }}
                   onClick={() => setOpenPop(null)}
                 >
-                  Open audit log →
+                  {t("openAudit")}
                 </Link>
               </div>
             </div>
@@ -158,51 +171,49 @@ export function Topbar() {
             <span className="avatar">{user ? initials(user.name) : "··"}</span>
             <span className="avatar-meta">
               <span className="avatar-name">{user?.name ?? "…"}</span>
-              <span className="avatar-role">{user ? roleLabel(user.role) : ""}</span>
+              <span className="avatar-role">{user ? t(ROLE_KEY[user.role]) : ""}</span>
             </span>
-            <Icon name="chevronDown" size={13} stroke={2} style={{ color: "#94A3B8" }} />
+            <Icon name="chevronDown" size={13} stroke={2} style={{ color: "var(--subtle)" }} />
           </button>
 
           {openPop === "user" && (
-            <div className="pop" style={{ right: 0, top: 38, width: 236 }} role="menu">
+            <div className="pop open" style={{ right: 0, top: 38, width: 236 }} role="menu">
               <div className="pop-head" style={{ display: "block" }}>
-                <div className="pop-h">{user?.name ?? "Chưa đăng nhập"}</div>
-                <div className="pop-p">{user?.email ?? "—"}</div>
+                <div className="pop-h">{user?.name}</div>
+                <div className="pop-p">{user?.email}</div>
               </div>
               <div style={{ padding: "5px 0" }}>
-                <Link
-                  href="/settings"
-                  className="menu-item"
-                  role="menuitem"
-                  onClick={() => setOpenPop(null)}
-                >
-                  <Icon name="gear" size={15} />
-                  Warehouse settings
-                </Link>
+                {atLeast(user?.role, "ADMIN") && (
+                  <Link
+                    href="/users"
+                    className="menu-item"
+                    role="menuitem"
+                    onClick={() => setOpenPop(null)}
+                  >
+                    <Icon name="users" size={15} />
+                    {t("permUsers")}
+                  </Link>
+                )}
+                {atLeast(user?.role, "MANAGER") && (
+                  <Link
+                    href="/settings"
+                    className="menu-item"
+                    role="menuitem"
+                    onClick={() => setOpenPop(null)}
+                  >
+                    <Icon name="gear" size={15} />
+                    {t("whSettings")}
+                  </Link>
+                )}
                 <div className="menu-sep" />
-                {/* Đăng nhập/phân quyền nằm ngoài phạm vi tài liệu kỹ thuật nên các mục
-                    này để trạng thái disabled thay vì gắn hành động giả. */}
                 <button
                   type="button"
                   className="menu-item"
                   role="menuitem"
-                  disabled
-                  title="Cần bổ sung authentication"
-                  style={{ opacity: 0.45, cursor: "not-allowed" }}
-                >
-                  <Icon name="user" size={15} />
-                  Profile &amp; permissions
-                </button>
-                <button
-                  type="button"
-                  className="menu-item"
-                  role="menuitem"
-                  disabled
-                  title="Cần bổ sung authentication"
-                  style={{ opacity: 0.45, cursor: "not-allowed" }}
+                  onClick={() => void signOut({ callbackUrl: "/login" })}
                 >
                   <Icon name="logout" size={15} />
-                  Sign out
+                  {t("signOut")}
                 </button>
               </div>
             </div>

@@ -5,6 +5,7 @@ import {
   optionalString,
   readJsonBody,
 } from "@/lib/api";
+import { requireRole, requireSession } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { stockStatus } from "@/lib/inventory";
 import type { ProductRow } from "@/lib/types";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 /** GET /api/products/:id - chi tiết một mã hàng. */
 export async function GET(_request: NextRequest, ctx: RouteContext<"/api/products/[id]">) {
   try {
+    await requireSession();
     const { id } = await ctx.params;
     const product = await prisma.product.findUniqueOrThrow({
       where: { id },
@@ -32,6 +34,8 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/product
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/products/[id]">) {
   try {
+    // Sửa dữ liệu gốc hàng hoá (safety stock, bin…) từ MANAGER trở lên.
+    await requireRole("MANAGER");
     const { id } = await ctx.params;
     const body = await readJsonBody(request);
 

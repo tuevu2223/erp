@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useApp, type DrawerMode } from "@/components/app-provider";
 import { Icon } from "@/components/ui/Icon";
 import { apiPatch, apiPost, useApi, RequestError } from "@/lib/client";
@@ -32,40 +33,40 @@ const CONFIG: Record<
   { eyebrow: string; title: string; cta: string; reasons: string[]; defaultReason: string; qty: number }
 > = {
   inbound: {
-    eyebrow: "Stock movement",
-    title: "Create inbound order",
-    cta: "Post inbound",
+    eyebrow: "dwMovement",
+    title: "dwInTitle",
+    cta: "dwPostIn",
     reasons: ["Purchase", "Return"],
     defaultReason: "Purchase",
     qty: 50,
   },
   outbound: {
-    eyebrow: "Stock movement",
-    title: "Create outbound order",
-    cta: "Post outbound",
+    eyebrow: "dwMovement",
+    title: "dwOutTitle",
+    cta: "dwPostOut",
     reasons: ["Sale", "Damaged"],
     defaultReason: "Sale",
     qty: 10,
   },
   adjust: {
-    eyebrow: "Cycle count",
-    title: "Adjust stock level",
-    cta: "Post adjustment",
+    eyebrow: "dwCount",
+    title: "dwAdjTitle",
+    cta: "dwPostAdj",
     reasons: REASONS,
     defaultReason: "Damaged",
     qty: 1,
   },
   edit: {
-    eyebrow: "Product master",
-    title: "Edit product",
-    cta: "Save product",
+    eyebrow: "dwMaster",
+    title: "dwEditTitle",
+    cta: "dwSaveProduct",
     reasons: [],
     defaultReason: "",
     qty: 0,
   },
   history: {
-    eyebrow: "Audit trail",
-    title: "Movement history",
+    eyebrow: "dwAudit",
+    title: "dwHistTitle",
     cta: "",
     reasons: [],
     defaultReason: "",
@@ -74,6 +75,7 @@ const CONFIG: Record<
 };
 
 export function StockDrawer() {
+  const t = useTranslations("app");
   const { drawer, lastDrawer, closeDrawer } = useApp();
   // Giữ nội dung của drawer vừa đóng để hiệu ứng trượt ra không bị trắng.
   const shown = drawer ?? lastDrawer;
@@ -100,7 +102,7 @@ export function StockDrawer() {
         className={cn("drawer", drawer && "open")}
         role="dialog"
         aria-modal="true"
-        aria-label={config?.title ?? "Drawer"}
+        aria-label={config ? t(config.title) : "Drawer"}
         aria-hidden={!drawer}
         data-od-id="action-drawer"
       >
@@ -108,8 +110,8 @@ export function StockDrawer() {
           <>
             <div className="drawer-head">
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="drawer-eyebrow">{config.eyebrow}</div>
-                <div className="drawer-title">{config.title}</div>
+                <div className="drawer-eyebrow">{t(config.eyebrow)}</div>
+                <div className="drawer-title">{t(config.title)}</div>
               </div>
               <button
                 type="button"
@@ -143,6 +145,7 @@ function useProductOptions() {
 // ──────────────────────────── nhập / xuất / kiểm kê ────────────────────────────
 
 function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adjust"; productId?: string }) {
+  const t = useTranslations("app");
   const config = CONFIG[mode];
   const { closeDrawer, toast, refresh, user } = useApp();
   const products = useProductOptions();
@@ -202,7 +205,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
         balance === 0 ? "bad" : product.safetyStock >= balance ? "warn" : "ok";
       toast({
         kind: status,
-        title: `${MOVEMENT_META[movement.type].label} posted · ${movement.reference}`,
+        title: `${t(MOVEMENT_META[movement.type].key)} posted · ${movement.reference}`,
         body: `${product.sku} ${signedQty(movement.quantity)} ${product.unit} → ${nf(balance)} on hand${
           status === "ok" ? "" : status === "warn" ? " · now low stock" : " · now out of stock"
         }.`,
@@ -250,9 +253,11 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
         <div className="fld">
           <div className="fld-label">
             <span>
-              Product <span className="req">*</span>
+              {t("fldProduct")} <span className="req">*</span>
             </span>
-            <span style={{ fontWeight: 400, color: "var(--subtle)" }}>{list.length} in scope</span>
+            <span style={{ fontWeight: 400, color: "var(--subtle)" }}>
+              {t("inScope", { n: list.length })}
+            </span>
           </div>
           <select
             className="sel"
@@ -279,7 +284,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
               </div>
             </span>
             <span style={{ textAlign: "right" }}>
-              <span className="ro-label">After posting</span>
+              <span className="ro-label">{t("afterPosting")}</span>
               <div
                 className="ro-val"
                 style={{
@@ -300,9 +305,11 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
         <div className="fld">
           <div className="fld-label">
             <span>
-              Quantity <span className="req">*</span>
+              {t("fldQty")} <span className="req">*</span>
             </span>
-            <span style={{ fontWeight: 400, color: "var(--subtle)" }}>in {product.unit}</span>
+            <span style={{ fontWeight: 400, color: "var(--subtle)" }}>
+              {t("inUnit", { u: product.unit })}
+            </span>
           </div>
           <div className="qty-row">
             <div className="stepper">
@@ -354,7 +361,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
 
         <div className="fld">
           <div className="fld-label">
-            Reason code <span className="req">*</span>
+            {t("fldReason")} <span className="req">*</span>
           </div>
           <div className="chips">
             {REASONS.map((item) => {
@@ -378,8 +385,8 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
         {mode !== "adjust" && (
           <div className="fld">
             <div className="fld-label">
-              <span>Counterparty</span>
-              <span style={{ fontWeight: 400, color: "var(--subtle)" }}>optional</span>
+              <span>{t("fldParty")}</span>
+              <span style={{ fontWeight: 400, color: "var(--subtle)" }}>{t("optional")}</span>
             </div>
             <select
               className="sel"
@@ -397,14 +404,14 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
 
         <div className="fld" style={{ marginBottom: 4 }}>
           <div className="fld-label">
-            <span>Notes</span>
-            <span style={{ fontWeight: 400, color: "var(--subtle)" }}>visible in audit log</span>
+            <span>{t("fldNotes")}</span>
+            <span style={{ fontWeight: 400, color: "var(--subtle)" }}>{t("notesHint")}</span>
           </div>
           <textarea
             className="inp"
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Pallet condition, seal number, discrepancies…"
+            placeholder={t("notesPh")}
           />
         </div>
       </div>
@@ -415,7 +422,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
           <b>{mode === "inbound" ? "IMPORT" : mode === "outbound" ? "EXPORT" : "ADJUST"}</b>
         </span>
         <button type="button" className="btn" onClick={closeDrawer}>
-          Cancel
+          {t("cancel")}
         </button>
         <button
           type="button"
@@ -423,7 +430,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
           onClick={() => void submit()}
           disabled={!!error || submitting}
         >
-          {submitting ? "Posting…" : config.cta}
+          {submitting ? "…" : t(config.cta)}
         </button>
       </div>
     </>
@@ -433,6 +440,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
 // ──────────────────────────── sửa hàng hoá ────────────────────────────
 
 function EditProductForm({ productId }: { productId?: string }) {
+  const t = useTranslations("app");
   const { closeDrawer, toast, refresh } = useApp();
   const products = useProductOptions();
   const list = products.data?.data ?? [];
@@ -501,7 +509,7 @@ function EditProductForm({ productId }: { productId?: string }) {
     <>
       <div className="drawer-body">
         <div className="fld">
-          <div className="fld-label">SKU code</div>
+          <div className="fld-label">{t("fldSku")}</div>
           <input
             className="inp"
             value={product.sku}
@@ -512,7 +520,7 @@ function EditProductForm({ productId }: { productId?: string }) {
         </div>
         <div className="fld">
           <div className="fld-label">
-            Product name <span className="req">*</span>
+            {t("fldName")} <span className="req">*</span>
           </div>
           <input
             className="inp"
@@ -523,7 +531,7 @@ function EditProductForm({ productId }: { productId?: string }) {
         <div className="form-row">
           <div className="form-field">
             <label className="form-label" htmlFor="edCat">
-              Category
+              {t("colCategory")}
             </label>
             <select
               className="sel"
@@ -538,7 +546,7 @@ function EditProductForm({ productId }: { productId?: string }) {
           </div>
           <div className="form-field">
             <label className="form-label" htmlFor="edUnit">
-              Unit of measure
+              {t("fldUom")}
             </label>
             <select
               className="sel"
@@ -555,7 +563,7 @@ function EditProductForm({ productId }: { productId?: string }) {
         <div className="form-row">
           <div className="form-field">
             <label className="form-label" htmlFor="edSafety">
-              Safety stock
+              {t("fldSafety")}
             </label>
             <input
               className="inp"
@@ -564,11 +572,11 @@ function EditProductForm({ productId }: { productId?: string }) {
               onChange={(event) => setMinStock(event.target.value.replace(/\D/g, ""))}
               style={{ fontFamily: "var(--mono)" }}
             />
-            <span className="form-hint">Amber alert triggers at or below this level.</span>
+            <span className="form-hint">{t("safetyHint")}</span>
           </div>
           <div className="form-field">
             <label className="form-label" htmlFor="edLoc">
-              Default bin
+              {t("fldBin")}
             </label>
             <input
               className="inp"
@@ -580,7 +588,7 @@ function EditProductForm({ productId }: { productId?: string }) {
           </div>
         </div>
         <div className="stock-readout">
-          <span className="ro-label">Current on hand (read-only — change via a movement)</span>
+          <span className="ro-label">{t("currentRO")}</span>
           <span className="ro-val">
             {nf(product.quantity)} {product.unit}
           </span>
@@ -589,7 +597,7 @@ function EditProductForm({ productId }: { productId?: string }) {
       <div className="drawer-foot">
         <div className="spacer" />
         <button type="button" className="btn" onClick={closeDrawer}>
-          Cancel
+          {t("cancel")}
         </button>
         <button
           type="button"
@@ -597,7 +605,7 @@ function EditProductForm({ productId }: { productId?: string }) {
           onClick={() => void submit()}
           disabled={submitting || !value.name.trim()}
         >
-          {submitting ? "Saving…" : CONFIG.edit.cta}
+          {submitting ? "…" : t(CONFIG.edit.cta)}
         </button>
       </div>
     </>
@@ -607,6 +615,7 @@ function EditProductForm({ productId }: { productId?: string }) {
 // ──────────────────────────── lịch sử giao dịch ────────────────────────────
 
 function HistoryPanel({ productId }: { productId?: string }) {
+  const t = useTranslations("app");
   const { closeDrawer, revision } = useApp();
   const products = useProductOptions();
   const product = products.data?.data.find((item) => item.id === productId);
@@ -621,13 +630,13 @@ function HistoryPanel({ productId }: { productId?: string }) {
       <div className="drawer-body">
         <div className="stock-readout" style={{ margin: "0 0 16px" }}>
           <span>
-            <span className="ro-label">Product</span>
+            <span className="ro-label">{t("fldProduct")}</span>
             <div className="ro-val" style={{ fontFamily: "var(--sans)", fontSize: 12.5 }}>
               {product?.name ?? "…"}
             </div>
           </span>
           <span style={{ textAlign: "right" }}>
-            <span className="ro-label">On hand</span>
+            <span className="ro-label">{t("colOnHand")}</span>
             <div className="ro-val">
               {product ? `${nf(product.quantity)} ${product.unit}` : "—"}
             </div>
@@ -664,7 +673,7 @@ function HistoryPanel({ productId }: { productId?: string }) {
               </span>
               <span className="hist-main">
                 <span className="hist-h">
-                  {movement.reason ?? meta.label} · {movement.reference}
+                  {movement.reason ?? t(meta.key)} · {movement.reference}
                 </span>
                 <span className="hist-p">
                   {fmtDateTime(movement.createdAt)}
@@ -684,10 +693,10 @@ function HistoryPanel({ productId }: { productId?: string }) {
       </div>
       <div className="drawer-foot">
         <span className="pager-meta" style={{ flex: 1 }}>
-          Read-only ledger — entries cannot be edited.
+          {t("readOnlyLedger")}
         </span>
         <button type="button" className="btn" onClick={closeDrawer}>
-          Close
+          {t("close")}
         </button>
       </div>
     </>
