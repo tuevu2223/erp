@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** POST /api/products - tạo mã hàng hoá mới: { sku, name, unit, category?, minStock?, location? } */
+/** POST /api/products - tạo mã hàng hoá mới: { sku, name, unit, category?, safetyStock?, defaultBin? } */
 export async function POST(request: NextRequest) {
   try {
     const body = await readJsonBody(request);
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
         name,
         unit: optionalString(body, "unit") ?? "pcs",
         category: optionalString(body, "category") ?? "Uncategorised",
-        minStock: optionalNonNegativeInt(body, "minStock") ?? 0,
-        location: optionalString(body, "location"),
+        safetyStock: optionalNonNegativeInt(body, "safetyStock") ?? 0,
+        defaultBin: optionalString(body, "defaultBin"),
         // Mọi hàng hoá đều có dòng tồn kho ngay từ đầu để phiếu nhập/xuất không phải tạo thêm.
         inventory: { create: { quantity: 0 } },
       },

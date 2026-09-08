@@ -17,7 +17,7 @@ type NavItem = {
 
 /** Cấu trúc điều hướng lấy đúng từ biến NAV trong prototype. */
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: "dashboard", group: "Operations" },
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard", group: "Operations" },
   { href: "/inventory", label: "Inventory", icon: "box", group: "Operations" },
   { href: "/inbound", label: "Inbound", icon: "inbound", group: "Movements" },
   { href: "/outbound", label: "Outbound", icon: "outbound", group: "Movements" },
@@ -30,16 +30,16 @@ export function Sidebar() {
   const pathname = usePathname();
   const { dashboard, railCollapsed, toggleRailCollapsed, setRailOpen } = useApp();
 
-  const kpis = dashboard?.kpis;
-  const needsAttention = (kpis?.lowStock ?? 0) + (kpis?.outOfStock ?? 0);
+  const stock = dashboard?.stock;
+  const needsAttention = (stock?.lowStock ?? 0) + (stock?.outOfStock ?? 0);
   const badges: Partial<Record<string, { text: string; alert?: boolean }>> = {
     "/inventory": needsAttention
       ? { text: String(needsAttention), alert: true }
-      : kpis
-        ? { text: nf(kpis.totalSkus) }
+      : stock
+        ? { text: nf(stock.totalSkus) }
         : undefined,
-    "/inbound": dashboard ? { text: String(dashboard.todayCounts.IMPORT) } : undefined,
-    "/outbound": dashboard ? { text: String(dashboard.todayCounts.EXPORT) } : undefined,
+    "/inbound": dashboard ? { text: String(dashboard.todayInboundCount) } : undefined,
+    "/outbound": dashboard ? { text: String(dashboard.todayOutboundCount) } : undefined,
   };
 
   const health = dashboard?.health;
@@ -73,7 +73,7 @@ export function Sidebar() {
             <div className="nav-group-label">{group.label}</div>
             {group.items.map((item) => {
               const active =
-                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
               const badge = badges[item.href];
               return (
                 <Link

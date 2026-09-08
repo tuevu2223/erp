@@ -19,7 +19,7 @@ type Row = {
 };
 
 const PAGES: { href: Route; label: string; icon: IconName }[] = [
-  { href: "/", label: "Dashboard", icon: "dashboard" },
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/inventory", label: "Inventory", icon: "box" },
   { href: "/inbound", label: "Inbound", icon: "inbound" },
   { href: "/outbound", label: "Outbound", icon: "outbound" },

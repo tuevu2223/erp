@@ -93,7 +93,3 @@ ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_product_id_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Tồn kho không bao giờ được âm (TÀI LIỆU KỸ THUẬT mục 3: inventories.quantity luôn >= 0)
-ALTER TABLE "inventories"
-  ADD CONSTRAINT "inventories_quantity_non_negative" CHECK ("quantity" >= 0);

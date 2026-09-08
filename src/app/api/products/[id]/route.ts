@@ -41,8 +41,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/produc
         name: optionalString(body, "name"),
         unit: optionalString(body, "unit"),
         category: optionalString(body, "category"),
-        location: optionalString(body, "location"),
-        minStock: optionalNonNegativeInt(body, "minStock"),
+        defaultBin: optionalString(body, "defaultBin"),
+        safetyStock: optionalNonNegativeInt(body, "safetyStock"),
       },
       include: { inventory: true },
     });
@@ -59,8 +59,8 @@ type ProductWithInventory = {
   name: string;
   category: string;
   unit: string;
-  location: string | null;
-  minStock: number;
+  defaultBin: string | null;
+  safetyStock: number;
   updatedAt: Date;
   inventory: { quantity: number; updatedAt: Date } | null;
 };
@@ -73,10 +73,10 @@ function toRow(product: ProductWithInventory): ProductRow {
     name: product.name,
     category: product.category,
     unit: product.unit,
-    location: product.location,
-    minStock: product.minStock,
+    defaultBin: product.defaultBin,
+    safetyStock: product.safetyStock,
     quantity,
-    status: stockStatus(quantity, product.minStock),
+    status: stockStatus(quantity, product.safetyStock),
     updatedAt: (product.inventory?.updatedAt ?? product.updatedAt).toISOString(),
   };
 }

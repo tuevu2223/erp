@@ -1,5 +1,6 @@
-import { DashboardView } from "@/components/dashboard/DashboardView";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
-  return <DashboardView />;
+/** Trang chủ đưa thẳng về /dashboard theo tài liệu mở rộng mục 1. */
+export default function RootPage() {
+  redirect("/dashboard");
 }

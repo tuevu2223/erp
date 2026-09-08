@@ -19,9 +19,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // suppressHydrationWarning chỉ áp cho thuộc tính của chính thẻ <html>:
+    // các extension trình duyệt (dịch trang, dark mode, trợ lý viết…) hay chèn thêm
+    // class/attribute vào <html> trước khi React hydrate, gây cảnh báo mismatch giả.
+    // Mọi mismatch thật bên trong <body> vẫn được React báo bình thường.
     <html
       lang="en"
       className={`${inter.variable} ${archivo.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
     >
       <body>
         <AppShell>{children}</AppShell>

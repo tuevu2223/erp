@@ -199,7 +199,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
       const movement = response.data.movement;
       const balance = response.data.quantity;
       const status =
-        balance === 0 ? "bad" : product.minStock >= balance ? "warn" : "ok";
+        balance === 0 ? "bad" : product.safetyStock >= balance ? "warn" : "ok";
       toast({
         kind: status,
         title: `${MOVEMENT_META[movement.type].label} posted · ${movement.reference}`,
@@ -269,7 +269,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
           <div className="stock-readout">
             <span>
               <span className="ro-label">
-                On hand{product.location ? ` · bin ${product.location}` : ""}
+                On hand{product.defaultBin ? ` · bin ${product.defaultBin}` : ""}
               </span>
               <div className="ro-val">
                 {nf(onHand)}{" "}
@@ -286,7 +286,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
                   color:
                     sign > 0
                       ? "var(--primary-ink)"
-                      : projected <= product.minStock
+                      : projected <= product.safetyStock
                         ? "var(--warn-ink)"
                         : "var(--fg)",
                 }}
@@ -343,7 +343,7 @@ function MovementForm({ mode, productId }: { mode: "inbound" | "outbound" | "adj
               {mode === "inbound" ? "Receipt increases" : "Issue decreases"} on-hand by{" "}
               <b>{Number.isFinite(quantity) ? nf(quantity) : "—"}</b>.
               <br />
-              Safety stock is <b>{nf(product.minStock)}</b>.
+              Safety stock is <b>{nf(product.safetyStock)}</b>.
             </span>
           </div>
           <div className={cn("err", error && "show")}>
@@ -441,8 +441,8 @@ function EditProductForm({ productId }: { productId?: string }) {
   const [name, setName] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [unit, setUnit] = useState<string | null>(null);
-  const [minStock, setMinStock] = useState<string | null>(null);
-  const [location, setLocation] = useState<string | null>(null);
+  const [safetyStock, setMinStock] = useState<string | null>(null);
+  const [defaultBin, setDefaultBin] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   if (products.loading && !product) {
@@ -469,8 +469,8 @@ function EditProductForm({ productId }: { productId?: string }) {
     name: name ?? product.name,
     category: category ?? product.category,
     unit: unit ?? product.unit,
-    minStock: minStock ?? String(product.minStock),
-    location: location ?? (product.location ?? ""),
+    safetyStock: safetyStock ?? String(product.safetyStock),
+    defaultBin: defaultBin ?? (product.defaultBin ?? ""),
   };
 
   async function submit() {
@@ -480,8 +480,8 @@ function EditProductForm({ productId }: { productId?: string }) {
         name: value.name,
         category: value.category,
         unit: value.unit,
-        minStock: Number.parseInt(value.minStock, 10) || 0,
-        location: value.location,
+        safetyStock: Number.parseInt(value.safetyStock, 10) || 0,
+        defaultBin: value.defaultBin,
       });
       toast({ kind: "ok", title: "Product saved", body: `${product.sku} master data updated.` });
       refresh();
@@ -560,7 +560,7 @@ function EditProductForm({ productId }: { productId?: string }) {
             <input
               className="inp"
               id="edSafety"
-              value={value.minStock}
+              value={value.safetyStock}
               onChange={(event) => setMinStock(event.target.value.replace(/\D/g, ""))}
               style={{ fontFamily: "var(--mono)" }}
             />
@@ -573,8 +573,8 @@ function EditProductForm({ productId }: { productId?: string }) {
             <input
               className="inp"
               id="edLoc"
-              value={value.location}
-              onChange={(event) => setLocation(event.target.value)}
+              value={value.defaultBin}
+              onChange={(event) => setDefaultBin(event.target.value)}
               style={{ fontFamily: "var(--mono)" }}
             />
           </div>

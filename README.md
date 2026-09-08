@@ -1,8 +1,8 @@
 # WMS Core — Hệ thống quản trị kho bãi ERP
 
 Fullstack monorepo: **Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + Prisma 7 + PostgreSQL**.
-Giao diện dựng từ prototype `Warehouse-WMS-Core-Prototype/warehouse-wms.html`, dữ liệu và
-nghiệp vụ bám theo `TÀI LIỆU THIẾT KẾ KỸ THUẬT.docx`.
+Giao diện dựng từ prototype `Warehouse-WMS-Core-Prototype/warehouse-wms.html`; nghiệp vụ lõi theo
+`TÀI LIỆU THIẾT KẾ KỸ THUẬT.docx`; module Dashboard & Reports theo `TÀI LIỆU THIẾT KẾ KỸ THUẬ2.docx`.
 
 ---
 
@@ -11,9 +11,9 @@ nghiệp vụ bám theo `TÀI LIỆU THIẾT KẾ KỸ THUẬT.docx`.
 ```bash
 npm install
 cp .env.example .env      # rồi sửa DATABASE_URL
-npx prisma migrate dev    # tạo bảng
+npx prisma migrate deploy # tạo bảng (hoặc `npm run db:migrate` khi phát triển)
 npx prisma db seed        # 5 người dùng, 30 SKU, ~64 phiếu 7 ngày gần nhất
-npm run dev               # http://localhost:3000
+npm run dev               # http://localhost:3000 → tự chuyển tới /dashboard
 ```
 
 ### Không có PostgreSQL trên máy?
@@ -38,91 +38,136 @@ gặp lỗi `Server has closed the connection`. Lần sau bật lại bằng `np
 
 ---
 
-## 2. Cấu trúc
+## 2. Phân vai hai trang thống kê
+
+Trước đây Dashboard và Reports hiển thị cùng một bộ KPI và cùng biểu đồ 7 ngày nên gây rối.
+Hai trang giờ tách hẳn theo tài liệu mở rộng mục 1:
+
+| | `/dashboard` — Vận hành hôm nay | `/reports` — Phân tích chu kỳ |
+| --- | --- | --- |
+| Dành cho | Thủ kho | Quản lý |
+| Mốc thời gian | Từ **00:00 hôm nay** | **7 / 14 / 30 ngày** gần nhất |
+| KPI | Today's inbound · Today's outbound · Needs replenishment · Stock on hand | 7-Day Inbound · 7-Day Outbound · 7-Day Net flow · Coverage risk |
+| Nội dung | Replenishment queue (nút **Replenish** mở drawer nhập kho đúng SKU), Recent movements (6 dòng), Stock by category | Daily throughput, Coverage risk (burn rate + days of cover), Top movers, **Export CSV** |
+| API | `GET /api/dashboard` | `GET /api/reports?range=7d`, `GET /api/reports/export` |
+
+Không còn thành phần nào xuất hiện ở cả hai trang: biểu đồ 7 ngày chỉ nằm ở Reports,
+replenishment queue và recent movements chỉ nằm ở Dashboard. Trang `/` chuyển hướng về `/dashboard`.
+
+---
+
+## 3. Cấu trúc
 
 ```
 prisma/
   schema.prisma              4 bảng cốt lõi + 2 enum
+  migrations/                init + rename_product_fields
   seed.ts                    dữ liệu mẫu lấy từ prototype
 src/lib/
   prisma.ts                  singleton PrismaClient + driver adapter pg
   api.ts                     ApiError, validate body, map lỗi → HTTP status
   inventory.ts               truy vấn danh sách + postStockMovement (transaction)
   movement-request.ts        thân chung của 3 endpoint nhập/xuất/kiểm kê
-  analytics.ts               KPI, biểu đồ 7 ngày, coverage, top movers, cảnh báo
+  analytics.ts               getDashboard() (hôm nay) và computeReports() (chu kỳ)
   types.ts                   DTO dùng chung giữa API và React
   client.ts                  useApi / apiPost / apiPatch phía client
   format.ts                  định dạng số, ngày, badge trạng thái
 src/app/
-  page.tsx                   Dashboard          → /api/dashboard
-  inventory/                 Tồn kho + hàng hoá → /api/products
-  inbound/ outbound/         Phiếu nhập / xuất  → /api/inventory/history?type=
-  movements/                 Sổ cái             → /api/inventory/history
-  reports/                   Báo cáo            → /api/reports
+  page.tsx                   redirect → /dashboard
+  dashboard/                 Vận hành hôm nay
+  inventory/                 Tồn kho + hàng hoá
+  inbound/ outbound/         Phiếu nhập / xuất
+  movements/                 Sổ cái
+  reports/                   Phân tích chu kỳ
   settings/                  Cấu hình (localStorage)
   api/…                      REST route handlers
 src/components/
   layout/                    AppShell, Sidebar, Topbar, CommandPalette (⌘K)
-  dashboard/                 KpiGrid, FlowChart, CategoryChart, DashboardView
+  dashboard/                 KpiGrid (dùng chung), Charts, DashboardView
   inventory/ movements/ reports/ settings/    các màn hình
   drawer/StockDrawer.tsx     nhập / xuất / kiểm kê / sửa hàng hoá / lịch sử
   ui/                        Icon, Pager, Toaster
 ```
 
-Design token (màu, bo góc, thang chữ, shadow) nằm ở đầu `src/app/globals.css`,
-trích nguyên từ prototype — đổi ở đó là đổi toàn bộ giao diện.
+Design token (màu, bo góc, thang chữ, shadow) nằm ở đầu `src/app/globals.css`, trích nguyên
+từ prototype — đổi ở đó là đổi toàn bộ giao diện.
 
 ---
 
-## 3. Cơ sở dữ liệu (tài liệu kỹ thuật, mục 3)
+## 4. Cơ sở dữ liệu
 
 | Bảng | Cột chính |
 | --- | --- |
 | `users` | id, email, password_hash, name, role (`ADMIN` \| `WAREHOUSE_STAFF`) |
-| `products` | id, sku (unique), name, unit, category, min_stock, location, created_at |
+| `products` | id, sku (unique), name, unit, **category**, **safety_stock**, **default_bin**, created_at, updated_at |
 | `inventories` | id, product_id (unique), quantity (CHECK >= 0), updated_at |
 | `stock_movements` | id, seq, product_id, type (`IMPORT`/`EXPORT`/`ADJUST`), quantity (có dấu), balance_after, reason, partner, note, created_by, created_at |
 
-Cột thêm ngoài bảng mô tả trong tài liệu, đều để phục vụ giao diện đã thiết kế:
+Ba cột in đậm là yêu cầu của tài liệu mở rộng mục 2. Chúng vốn đã tồn tại dưới tên
+`min_stock` / `location`, nên migration `rename_product_fields` dùng `ALTER TABLE … RENAME COLUMN`
+để đổi tên **mà không mất dữ liệu** (Prisma mặc định sinh DROP + ADD, đã thay bằng SQL viết tay).
 
-- `products.category`, `products.min_stock`, `products.location` — mục 1 của tài liệu yêu cầu
-  quản lý “danh mục” và biết “mặt hàng nằm ở ô/kệ nào”; `min_stock` là nguồn của badge
-  Low stock / Replenishment queue trong thiết kế.
-- `stock_movements.balance_after` — cột “Balance” trong sổ cái; ghi ngay trong transaction
-  nên không phải tính lại khi đọc.
-- `stock_movements.seq` — sinh mã phiếu hiển thị `GRN-xxxx` / `DO-xxxx` / `ADJ-xxx`.
-- `stock_movements.partner`, `note` — ô “Counterparty” và “Notes” trong drawer.
+Cột thêm ngoài bảng mô tả trong tài liệu gốc, đều để phục vụ giao diện đã thiết kế:
+`stock_movements.balance_after` (cột Balance của sổ cái, ghi ngay trong transaction),
+`seq` (sinh mã phiếu `GRN-`/`DO-`/`ADJ-`), `partner` và `note` (ô Counterparty / Notes trong drawer).
 
 ---
 
-## 4. REST API (tài liệu kỹ thuật, mục 4)
+## 5. REST API
 
 | Method | Endpoint | Mục đích |
 | --- | --- | --- |
 | GET | `/api/products` | Danh sách hàng hoá + tồn. Query: `page`, `limit`, `q`, `category`, `status=ok\|low\|out`, `from`, `to`, `sort`, `dir` |
-| POST | `/api/products` | Tạo mã hàng: `{ sku, name, unit?, category?, minStock?, location? }` |
+| POST | `/api/products` | Tạo mã hàng: `{ sku, name, unit?, category?, safetyStock?, defaultBin? }` |
 | GET/PATCH | `/api/products/:id` | Xem / sửa dữ liệu master (không sửa được tồn kho) |
 | POST | `/api/inventory/import` | Phiếu nhập: `{ productId \| sku, quantity, reason?, partner?, note?, createdBy? }` |
 | POST | `/api/inventory/export` | Phiếu xuất, cùng payload |
 | POST | `/api/inventory/adjust` | Phiếu kiểm kê, `quantity` là số có dấu |
 | GET | `/api/inventory/history` | Sổ cái. Query: `productId`, `sku`, `type`, `q`, `from`, `to`, `page`, `limit` |
-| GET | `/api/dashboard` | KPI, biểu đồ 7 ngày, hàng cần bổ sung, giao dịch gần đây, cảnh báo |
-| GET | `/api/reports` | Throughput, số ngày còn hàng, top mặt hàng luân chuyển |
+| GET | `/api/dashboard` | **Chỉ số liệu hôm nay** (xem dưới) |
+| GET | `/api/reports?range=7d` | **Số liệu chu kỳ** (xem dưới) |
+| GET | `/api/reports/export?range=7d` | Tải Top movers dạng CSV (text/csv + BOM UTF-8) |
 | GET | `/api/me` | Người thao tác hiện tại (tạm thời, chưa có authentication) |
 
-Mã lỗi: `400` sai dữ liệu / **tồn kho không đủ** · `404` không thấy sản phẩm ·
-`409` trùng SKU · `503` mất kết nối DB · `500` lỗi khác. Body lỗi có thêm `code`
-(`INSUFFICIENT_STOCK`, `VALIDATION`, `DUPLICATE`…) để UI hiển thị đúng thông điệp.
+### `GET /api/dashboard`
+
+```jsonc
+{
+  "date": "2026-09-08",
+  "todayInbound": 195, "todayOutbound": 432,      // tổng số lượng từ 00:00 hôm nay
+  "todayInboundCount": 6, "todayOutboundCount": 6, // số phiếu
+  "inboundDeltaPct": 236, "outboundDeltaPct": 33,  // so với hôm qua
+  "stock": { "totalSkus": 30, "skusInStock": 27, "outOfStock": 3, "lowStock": 9, "unitsOnHand": 23822 },
+  "alerts": [ /* SKU có quantity <= safety_stock, thiếu nhiều nhất trước */ ],
+  "recentMovements": [ /* 6 dòng mới nhất */ ],
+  "categoryMix": [...], "notifications": [...], "health": {...}
+}
+```
+
+### `GET /api/reports?range=7d`
+
+```jsonc
+{
+  "range": { "days": 7, "from": "2026-09-02", "to": "2026-09-08" },
+  "periodInbound": 1380, "periodOutbound": 1909, "periodNet": -529,
+  "activeSkus": 28, "skusAtRisk": 4,
+  "flow": [ { "date": "2026-09-02", "in": 178, "out": 109 }, ... ],
+  "topMovers":    [ { "sku": "...", "in": 375, "out": 193, "net": 182, "onHand": 3480 }, ... ],
+  "coverageRisk": [ { "sku": "...", "quantity": 0, "dailyBurnRate": 2, "daysOfCover": 0 }, ... ]
+}
+```
+
+Mã lỗi: `400` sai dữ liệu / **tồn kho không đủ** · `404` không thấy sản phẩm · `409` trùng SKU ·
+`503` mất kết nối DB · `500` lỗi khác. Body lỗi có thêm `code` (`INSUFFICIENT_STOCK`, `VALIDATION`…).
 
 ---
 
-## 5. Hai nguyên tắc bắt buộc (tài liệu kỹ thuật, mục 5)
+## 6. Công thức nghiệp vụ
 
-**A. Transaction nguyên tử** — `postStockMovement()` trong `src/lib/inventory.ts` gói
-cập nhật `inventories` và ghi `stock_movements` vào một `prisma.$transaction`; lỗi ở bước
-nào thì rollback toàn bộ.
+**Transaction nguyên tử** (tài liệu gốc 5A) — `postStockMovement()` gói cập nhật `inventories`
+và ghi `stock_movements` vào một `prisma.$transaction`; lỗi ở bước nào thì rollback toàn bộ.
 
-**B. Chống race condition** — phép trừ tồn dùng câu lệnh có điều kiện:
+**Chống race condition** (tài liệu gốc 5B) — phép trừ tồn dùng câu lệnh có điều kiện:
 
 ```ts
 tx.inventory.updateMany({
@@ -132,50 +177,54 @@ tx.inventory.updateMany({
 // count === 0  →  400 "Hàng tồn kho không đủ"
 ```
 
-PostgreSQL khoá dòng và kiểm tra lại điều kiện sau khi transaction song song commit.
-Đã kiểm chứng: 8 phiếu xuất 3 đơn vị chạy đồng thời trên tồn 10 → đúng 3 phiếu được ghi,
-5 phiếu bị chặn, tồn còn 1, **không bao giờ âm**. Ngoài ra bảng `inventories` còn có
-CHECK constraint `quantity >= 0` như một chốt chặn cuối.
+**Net flow của Top movers** (tài liệu mở rộng 4A) — `prisma.stockMovement.groupBy()` theo
+`product_id` + `type`, `Net = Total In − Total Out`. Phiếu `ADJUST` **không** được tính vào
+In/Out vì không phải luồng nhập/xuất.
+
+**Days of cover** (tài liệu mở rộng 4B) — `dailyBurnRate = tổng EXPORT trong kỳ / số ngày`;
+`daysOfCover = quantity / dailyBurnRate`. Burn rate = 0 → API trả `daysOfCover: null`,
+giao diện hiển thị **"> 30 days cover"**.
+
+**Lọc thời gian** (tài liệu mở rộng 4C) — Dashboard `createdAt >= startOfToday`,
+Reports `createdAt >= N ngày trước`. Mốc ngày cắt theo **giờ địa phương của server**, không
+theo UTC, để giao dịch buổi tối không bị đẩy sang hôm sau.
 
 ---
 
-## 6. Khác biệt so với file thiết kế (và lý do)
+## 7. Khác biệt so với file thiết kế giao diện (và lý do)
 
-Prototype được vẽ trước khi chốt tài liệu kỹ thuật nên có vài chỗ vượt ra ngoài phạm vi
-4 bảng. Những chỗ đó đã chỉnh theo tài liệu:
+Prototype được vẽ trước khi chốt tài liệu kỹ thuật nên có vài chỗ vượt ra ngoài phạm vi 4 bảng:
 
 | Thiết kế | Đã đổi thành | Lý do |
 | --- | --- | --- |
-| Bộ chọn kho “All warehouses / WH-01…” trên topbar | Bỏ | Không có bảng warehouses; tài liệu chỉ mô tả một kho |
-| Thanh “Bin utilisation 2,884/4,000 bins” | “Stock health — N/M SKUs above safety” | Không có bảng bins; số liệu mới lấy từ dữ liệu thật |
-| Trang Inbound/Outbound là bảng *orders* riêng (GRN/DO + trạng thái Completed/In transit/Awaiting) | Lọc từ `stock_movements` theo `type`, cột Status thay bằng Operator | Không có bảng orders trong tài liệu |
-| Thông báo cứng trong mảng `NOTIFS` | Sinh từ dữ liệu thật (hết hàng, chạm ngưỡng an toàn, phiếu vừa ghi) | Bỏ dữ liệu giả |
-| `role: 'Warehouse Lead'` | `ADMIN` / `WAREHOUSE_STAFF` | Đúng enum trong tài liệu mục 3 |
-| Loại phiếu `IN` / `OUT` / `ADJ` | `IMPORT` / `EXPORT` / `ADJUST` | Đúng enum trong tài liệu |
-| Xuất quá tồn trả 409 | Trả **400 “Hàng tồn kho không đủ”** | Đúng yêu cầu mục 5 của tài liệu |
-| `Số lượng` luôn dương | Lưu **có dấu** (+50 / −20) | Đúng mô tả `stock_movements.quantity` mục 3 |
-| Menu Profile / Sign out | Để trạng thái disabled | Chưa có authentication (ngoài phạm vi tài liệu) |
-| Trang Settings | Lưu trong `localStorage`, khoá công tắc “Allow negative on-hand” | Chưa có bảng settings; quy tắc không-âm do server cưỡng chế |
-
-Giữ nguyên từ thiết kế: toàn bộ token màu/chữ/spacing, sidebar + topbar, 4 thẻ KPI,
-biểu đồ nhập-xuất 7 ngày, replenishment queue, recent movements, stock by category,
-bảng tồn kho (lọc, sắp xếp, chọn dòng, phân trang), drawer nhập/xuất/kiểm kê/sửa/lịch sử,
-command palette ⌘K, toast, và các trạng thái loading/empty/error.
+| Bộ chọn kho “All warehouses / WH-01…” | Bỏ | Không có bảng warehouses |
+| Thanh “Bin utilisation 2,884/4,000 bins” | “Stock health — N/M SKUs above safety” | Không có bảng bins |
+| Trang Inbound/Outbound là bảng *orders* riêng (trạng thái Completed/In transit) | Lọc từ `stock_movements` theo `type`, cột Status thay bằng Operator | Không có bảng orders |
+| Thông báo cứng trong mảng `NOTIFS` | Sinh từ dữ liệu thật | Bỏ dữ liệu giả |
+| `IN` / `OUT` / `ADJ` | `IMPORT` / `EXPORT` / `ADJUST` | Đúng enum tài liệu |
+| Xuất quá tồn trả 409 | **400 “Hàng tồn kho không đủ”** | Đúng tài liệu gốc mục 5 |
+| Cả 2 trang cùng 4 KPI “Today’s …” + biểu đồ 7 ngày | Tách theo bảng ở mục 2 | Đúng tài liệu mở rộng mục 1 |
+| Menu Profile / Sign out | Disabled | Chưa có authentication |
+| Trang Settings | localStorage, khoá công tắc “Allow negative on-hand” | Chưa có bảng settings |
 
 ---
 
-## 7. Đã kiểm thử
+## 8. Đã kiểm thử
 
 - `npm run typecheck`, `npm run lint`, `npm run build` — sạch.
-- API: nhập/xuất/kiểm kê, thiếu hàng (400), sai SKU (404), trùng SKU (409), sai `createdBy` (400),
-  phân trang, lọc theo trạng thái/danh mục/từ khoá, tiếng Việt có dấu trong `note`.
-- Race condition: 8 request xuất song song (mô tả ở mục 5).
-- Giao diện (Chrome headless): 7 trang render đúng dữ liệu thật, KPI khớp API, lọc và tìm kiếm,
-  ghi phiếu qua drawer → toast → bảng tự làm mới, chặn xuất vượt tồn, ⌘K, không lỗi console/hydration,
-  **không tràn ngang ở cả 9 viewport** 360/390/430/600/820/1024/1366/1440/1920.
+- **API**: nhập/xuất/kiểm kê, thiếu hàng (400), sai SKU (404), trùng SKU (409), sai `createdBy` (400),
+  phân trang, lọc, tiếng Việt có dấu trong `note`.
+- **Race condition**: 8 request xuất song song trên tồn 10 → đúng 3 phiếu được ghi, tồn không âm.
+- **Đối chiếu số liệu**: `todayInbound/Outbound`, số phiếu, danh sách `alerts`, `recentMovements`,
+  `In/Out/Net` từng SKU và `daysOfCover` đều được tính lại độc lập từ `/api/inventory/history`
+  rồi so khớp với API — trùng khớp 100%. Đã kiểm chứng `ADJUST` bị loại khỏi In/Out.
+- **Giao diện** (Chrome headless, 3 bộ: 32 + 30 + 16 kịch bản, tất cả đạt): tách trang, KPI khớp API,
+  Replenish mở đúng SKU, ghi phiếu → `todayInbound` tăng đúng, đổi chu kỳ 7/14/30, tải CSV,
+  không lỗi console/hydration, không tràn ngang ở 9 viewport 360→1920.
 
-## 8. Việc còn để mở
+## 9. Việc còn để mở
 
 - Authentication + phân quyền theo `role` (hiện `/api/me` trả tài khoản ADMIN đầu tiên).
 - Bảng settings và bảng đối tác (partner) nếu muốn quản lý trong DB thay vì hằng số/localStorage.
-- Chọn nhiều dòng trong bảng tồn kho hiện mới dừng ở hiển thị số lượng đã chọn — chưa có thao tác hàng loạt.
+- Chưa có UI tạo hàng hoá mới (API `POST /api/products` đã sẵn sàng) và chưa có thao tác hàng loạt
+  cho các dòng được chọn trong bảng tồn kho.

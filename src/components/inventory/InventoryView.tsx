@@ -3,15 +3,15 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useApp } from "@/components/app-provider";
-import { KpiGrid } from "@/components/dashboard/KpiGrid";
+import { KpiGrid, type KpiCard } from "@/components/dashboard/KpiGrid";
 import { Icon } from "@/components/ui/Icon";
 import { Pager } from "@/components/ui/Pager";
 import { buildQuery, useApi } from "@/lib/client";
 import { fmtDate, nf, STATUS_META } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { ProductListResponse, StockStatus } from "@/lib/types";
+import type { ProductListResponse, StockSnapshot, StockStatus } from "@/lib/types";
 
-type SortKey = "sku" | "name" | "category" | "quantity" | "minStock";
+type SortKey = "sku" | "name" | "category" | "quantity" | "safetyStock";
 
 const STATUS_FILTERS: { value: StockStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -26,8 +26,56 @@ const COLUMNS: { key: SortKey | "unit"; label: string; width?: number; align?: "
   { key: "category", label: "Category", width: 132 },
   { key: "unit", label: "Unit", width: 64 },
   { key: "quantity", label: "Current stock", width: 158, align: "right" },
-  { key: "minStock", label: "Safety", width: 98, align: "right" },
+  { key: "safetyStock", label: "Safety", width: 98, align: "right" },
 ];
+
+/** KPI của trang Inventory: trạng thái tồn kho hiện tại, không trùng Dashboard/Reports. */
+function stockCards(stock: StockSnapshot, onFilter: (status: StockStatus) => void): KpiCard[] {
+  return [
+    {
+      id: "skus-in-stock",
+      label: "SKUs in stock",
+      icon: "box",
+      tint: "var(--primary-soft)",
+      ink: "var(--primary-ink)",
+      value: nf(stock.skusInStock),
+      unit: `/ ${nf(stock.totalSkus)}`,
+      note: `${nf(stock.unitsOnHand)} units on hand`,
+    },
+    {
+      id: "low-stock",
+      label: "Low stock",
+      icon: "alert",
+      tint: "var(--warn-soft)",
+      ink: "var(--warn-ink)",
+      value: nf(stock.lowStock),
+      unit: "SKUs",
+      note: "At or below safety stock",
+      onClick: () => onFilter("low"),
+    },
+    {
+      id: "out-of-stock",
+      label: "Out of stock",
+      icon: "alert",
+      tint: "var(--danger-soft)",
+      ink: "var(--danger-ink)",
+      value: nf(stock.outOfStock),
+      unit: "SKUs",
+      note: "Zero on hand",
+      onClick: () => onFilter("out"),
+    },
+    {
+      id: "categories",
+      label: "Categories",
+      icon: "chart",
+      tint: "var(--surface-2)",
+      ink: "var(--fg-2)",
+      value: nf(stock.totalSkus),
+      unit: "SKUs",
+      note: "Across the whole catalogue",
+    },
+  ];
+}
 
 export function InventoryView() {
   const searchParams = useSearchParams();
@@ -114,7 +162,16 @@ export function InventoryView() {
         </div>
       </div>
 
-      <KpiGrid kpis={dashboard?.kpis ?? null} />
+      <KpiGrid
+        cards={
+          dashboard
+            ? stockCards(dashboard.stock, (next) => {
+                setStatus(next);
+                setPage(1);
+              })
+            : null
+        }
+      />
 
       <div className="card" data-od-id="inventory-table-card">
         <div className="filters" data-od-id="inventory-action-bar">
@@ -296,7 +353,7 @@ export function InventoryView() {
                   const statusMeta = STATUS_META[product.status];
                   const pct = Math.min(
                     100,
-                    Math.round((product.quantity / Math.max(product.minStock * 2, 1)) * 100),
+                    Math.round((product.quantity / Math.max(product.safetyStock * 2, 1)) * 100),
                   );
                   return (
                     <tr
@@ -317,7 +374,7 @@ export function InventoryView() {
                       <td>
                         <div className="t-name">{product.name}</div>
                         <div className="t-loc">
-                          {product.location ? `Bin ${product.location} · ` : ""}upd{" "}
+                          {product.defaultBin ? `Bin ${product.defaultBin} · ` : ""}upd{" "}
                           {fmtDate(product.updatedAt)}
                         </div>
                       </td>
@@ -334,7 +391,7 @@ export function InventoryView() {
                         </div>
                       </td>
                       <td className="t-num" style={{ color: "var(--muted)" }}>
-                        {nf(product.minStock)}
+                        {nf(product.safetyStock)}
                       </td>
                       <td>
                         <span className={cn("badge", statusMeta.cls)}>

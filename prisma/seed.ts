@@ -111,10 +111,10 @@ async function main() {
 
   console.log("• Tạo hàng hoá…");
   const products = [];
-  for (const [sku, name, category, unit, , minStock, location] of CATALOGUE) {
+  for (const [sku, name, category, unit, , safetyStock, defaultBin] of CATALOGUE) {
     products.push(
       await prisma.product.create({
-        data: { sku, name, category, unit, minStock, location },
+        data: { sku, name, category, unit, safetyStock, defaultBin },
       }),
     );
   }
@@ -122,6 +122,7 @@ async function main() {
   const finalStock = new Map(CATALOGUE.map((row) => [row[0], row[4]]));
 
   // ── sinh giao dịch trong 7 ngày gần nhất ──
+  const now = new Date();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const drafts: Draft[] = [];
@@ -134,12 +135,18 @@ async function main() {
       const type: MovementType = rnd() < 0.09 ? "ADJUST" : isIn ? "IMPORT" : "EXPORT";
       const base = stock > 800 ? 120 : stock > 200 ? 40 : 12;
       const qty = Math.max(1, Math.round(base * (0.4 + rnd() * 1.6)));
-      const at = new Date(
+      // Giờ làm việc 07:00-18:00. Với ngày hôm nay phải kẹp lại trong khoảng
+      // [00:00, bây giờ] - sổ cái không được có phiếu ghi ở thời điểm tương lai.
+      let at = new Date(
         today.getTime() -
           d * DAY +
           (7 + Math.floor(rnd() * 11)) * 3_600_000 +
           Math.floor(rnd() * 60) * 60_000,
       );
+      if (at > now) {
+        const span = now.getTime() - today.getTime();
+        at = new Date(today.getTime() + Math.floor(rnd() * Math.max(span, 1)));
+      }
       const reason =
         type === "IMPORT"
           ? rnd() < 0.8

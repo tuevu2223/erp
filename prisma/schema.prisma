@@ -39,18 +39,18 @@ model User {
 }
 
 model Product {
-  id        String   @id @default(cuid())
-  sku       String   @unique
-  name      String
-  unit      String   @default("pcs")
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  unit        String   @default("pcs")
   /// "Quản lý danh mục hàng hóa (SKU, tên, đơn vị tính, danh mục)" - mục 1
-  category  String   @default("Uncategorised")
-  /// Ngưỡng cảnh báo bổ sung hàng (safety stock) - nguồn của badge Low stock trên UI
-  minStock  Int      @default(0) @map("min_stock")
-  /// Ô/kệ lưu hàng - "không biết chính xác mặt hàng nào đang nằm ở ô/kệ nào" (mục 1)
-  location  String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  category    String   @default("Uncategorised")
+  /// Mức tồn kho an toàn, đối chiếu với inventories.quantity để cảnh báo (tài liệu mở rộng mục 2)
+  safetyStock Int      @default(0) @map("safety_stock")
+  /// Vị trí lưu kho mặc định, ví dụ E-01-01 (tài liệu mở rộng mục 2)
+  defaultBin  String?  @map("default_bin")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   inventory Inventory?
   movements StockMovement[]

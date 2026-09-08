@@ -13,9 +13,9 @@ export function movementRef(type: MovementType, seq: number): string {
   return `ADJ-${200 + seq}`;
 }
 
-export function stockStatus(quantity: number, minStock: number): StockStatus {
+export function stockStatus(quantity: number, safetyStock: number): StockStatus {
   if (quantity <= 0) return "out";
-  return quantity <= minStock ? "low" : "ok";
+  return quantity <= safetyStock ? "low" : "ok";
 }
 
 // ──────────────────────────────── danh sách hàng hoá ────────────────────────────────
@@ -25,7 +25,7 @@ const SORT_COLUMNS: Record<string, string> = {
   name: "p.name",
   category: "p.category",
   quantity: "quantity",
-  minStock: "p.min_stock",
+  safetyStock: "p.safety_stock",
   updatedAt: "updated_at",
 };
 
@@ -47,15 +47,15 @@ type ProductQueryRow = {
   name: string;
   category: string;
   unit: string;
-  location: string | null;
-  min_stock: number;
+  defaultBin: string | null;
+  safety_stock: number;
   quantity: number;
   updated_at: Date;
 };
 
 /**
  * Trạng thái tồn kho (ok/low/out) là phép so sánh giữa hai bảng
- * (inventories.quantity với products.min_stock) nên Prisma Client không lọc được
+ * (inventories.quantity với products.safety_stock) nên Prisma Client không lọc được
  * bằng API thông thường. Dùng SQL tham số hoá qua Prisma.sql để vừa lọc, vừa sắp
  * xếp, vừa phân trang ngay trong database thay vì tải hết rồi lọc trong bộ nhớ.
  */
@@ -73,10 +73,10 @@ function productFilters(params: ProductListParams): Prisma.Sql[] {
     where.push(Prisma.sql`COALESCE(i.quantity, 0) = 0`);
   } else if (params.status === "low") {
     where.push(
-      Prisma.sql`COALESCE(i.quantity, 0) > 0 AND COALESCE(i.quantity, 0) <= p.min_stock`,
+      Prisma.sql`COALESCE(i.quantity, 0) > 0 AND COALESCE(i.quantity, 0) <= p.safety_stock`,
     );
   } else if (params.status === "ok") {
-    where.push(Prisma.sql`COALESCE(i.quantity, 0) > p.min_stock`);
+    where.push(Prisma.sql`COALESCE(i.quantity, 0) > p.safety_stock`);
   }
   if (params.from) {
     where.push(Prisma.sql`COALESCE(i.updated_at, p.updated_at) >= ${new Date(params.from)}`);
@@ -102,7 +102,7 @@ export async function listProducts(params: ProductListParams) {
 
   const [rows, counted] = await Promise.all([
     prisma.$queryRaw<ProductQueryRow[]>`
-      SELECT p.id, p.sku, p.name, p.category, p.unit, p.location, p.min_stock,
+      SELECT p.id, p.sku, p.name, p.category, p.unit, p.default_bin AS "defaultBin", p.safety_stock,
              COALESCE(i.quantity, 0)::int AS quantity,
              COALESCE(i.updated_at, p.updated_at) AS updated_at
       FROM products p
@@ -132,10 +132,10 @@ function toProductRow(row: ProductQueryRow): ProductRow {
     name: row.name,
     category: row.category,
     unit: row.unit,
-    location: row.location,
-    minStock: row.min_stock,
+    defaultBin: row.defaultBin,
+    safetyStock: row.safety_stock,
     quantity: row.quantity,
-    status: stockStatus(row.quantity, row.min_stock),
+    status: stockStatus(row.quantity, row.safety_stock),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
 }

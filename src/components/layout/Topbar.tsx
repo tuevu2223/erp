@@ -9,7 +9,7 @@ import { fmtRelative, initials, roleLabel } from "@/lib/format";
 import type { AlertKind } from "@/lib/types";
 
 const CRUMBS: Record<string, { root: string; label: string }> = {
-  "/": { root: "Operations", label: "Dashboard" },
+  "/dashboard": { root: "Operations", label: "Today's operations" },
   "/inventory": { root: "Operations", label: "Inventory" },
   "/inbound": { root: "Movements", label: "Inbound" },
   "/outbound": { root: "Movements", label: "Outbound" },
@@ -35,7 +35,7 @@ export function Topbar() {
   const rightRef = useRef<HTMLDivElement>(null);
 
   const crumb = CRUMBS[pathname] ?? { root: "Operations", label: "WMS" };
-  const alerts = dashboard?.alerts ?? [];
+  const alerts = dashboard?.notifications ?? [];
   const unread = readAt === null ? alerts.length : 0;
 
   useEffect(() => {

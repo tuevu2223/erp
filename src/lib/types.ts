@@ -14,8 +14,10 @@ export type ProductRow = {
   name: string;
   category: string;
   unit: string;
-  location: string | null;
-  minStock: number;
+  /** Vị trí lưu kho mặc định (products.default_bin). */
+  defaultBin: string | null;
+  /** Mức tồn an toàn (products.safety_stock). */
+  safetyStock: number;
   quantity: number;
   status: StockStatus;
   updatedAt: string;
@@ -56,26 +58,20 @@ export type ProductListResponse = Paginated<ProductRow> & {
   categories: string[];
 };
 
+/** Ảnh chụp tồn kho tại thời điểm hiện tại (không phụ thuộc khoảng thời gian). */
+export type StockSnapshot = {
+  totalSkus: number;
+  skusInStock: number;
+  outOfStock: number;
+  lowStock: number;
+  unitsOnHand: number;
+};
+
 export type FlowPoint = {
   /** yyyy-mm-dd */
   date: string;
   in: number;
   out: number;
-};
-
-export type Kpis = {
-  skusInStock: number;
-  totalSkus: number;
-  unitsOnHand: number;
-  lowStock: number;
-  outOfStock: number;
-  inboundToday: number;
-  outboundToday: number;
-  /** % thay đổi so với hôm qua, null khi hôm qua không có dữ liệu. */
-  inboundDelta: number | null;
-  outboundDelta: number | null;
-  inboundSeries: number[];
-  outboundSeries: number[];
 };
 
 export type AlertKind = "bad" | "warn" | "info" | "ok";
@@ -93,17 +89,31 @@ export type CategorySlice = {
   units: number;
 };
 
+/**
+ * GET /api/dashboard — CHỈ số liệu hôm nay (tài liệu mở rộng mục 3).
+ * Không chứa dữ liệu chu kỳ 7 ngày; phần đó thuộc về /api/reports.
+ */
 export type DashboardPayload = {
-  kpis: Kpis;
-  flow: FlowPoint[];
-  lowStock: ProductRow[];
-  recent: MovementRow[];
+  /** Ngày đang được tính, yyyy-mm-dd theo giờ server. */
+  date: string;
+  /** Tổng số lượng đã nhập từ 00:00 hôm nay. */
+  todayInbound: number;
+  /** Tổng số lượng đã xuất từ 00:00 hôm nay. */
+  todayOutbound: number;
+  todayInboundCount: number;
+  todayOutboundCount: number;
+  /** % thay đổi so với hôm qua, null khi hôm qua không phát sinh. */
+  inboundDeltaPct: number | null;
+  outboundDeltaPct: number | null;
+  stock: StockSnapshot;
+  /** SKU có quantity <= safety_stock, cần nhập bổ sung. */
+  alerts: ProductRow[];
+  /** 6 giao dịch mới nhất trong sổ cái. */
+  recentMovements: MovementRow[];
   categoryMix: CategorySlice[];
-  alerts: Alert[];
-  /** Tỉ lệ SKU đang ở trên ngưỡng an toàn - thanh đo ở chân sidebar. */
+  /** Thông báo cho chuông trên topbar. */
+  notifications: Alert[];
   health: { healthy: number; total: number };
-  /** Số phiếu đã ghi trong ngày, hiển thị làm badge trên sidebar. */
-  todayCounts: { IMPORT: number; EXPORT: number; ADJUST: number };
 };
 
 export type CoverageRow = {
@@ -112,8 +122,10 @@ export type CoverageRow = {
   name: string;
   unit: string;
   quantity: number;
-  /** Số ngày còn hàng theo tốc độ xuất trung bình 7 ngày. */
-  daysOfCover: number;
+  /** Tốc độ tiêu thụ trung bình mỗi ngày trong kỳ. */
+  dailyBurnRate: number;
+  /** Số ngày còn hàng; null nghĩa là không tiêu thụ → UI hiển thị "> 30 days". */
+  daysOfCover: number | null;
 };
 
 export type MoverRow = {
@@ -127,11 +139,20 @@ export type MoverRow = {
   onHand: number;
 };
 
+/** GET /api/reports?range=7d — số liệu chu kỳ (tài liệu mở rộng mục 3). */
 export type ReportPayload = {
-  kpis: Kpis;
+  range: { days: number; from: string; to: string };
+  periodInbound: number;
+  periodOutbound: number;
+  periodNet: number;
+  /** Số SKU có phát sinh nhập/xuất trong kỳ. */
+  activeSkus: number;
+  /** Số SKU còn dưới 7 ngày hàng. */
+  skusAtRisk: number;
+  stock: StockSnapshot;
   flow: FlowPoint[];
-  coverage: CoverageRow[];
   topMovers: MoverRow[];
+  coverageRisk: CoverageRow[];
 };
 
 export type CurrentUser = {

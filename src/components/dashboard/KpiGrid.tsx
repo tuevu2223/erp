@@ -1,11 +1,25 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { nf } from "@/lib/format";
-import type { Kpis } from "@/lib/types";
 
-function Spark({ values, color }: { values: number[]; color: string }) {
+export type KpiCard = {
+  id: string;
+  label: string;
+  icon: IconName;
+  tint: string;
+  ink: string;
+  value: string;
+  /** Đơn vị nhỏ cạnh con số, ví dụ "units" hoặc "/ 30". */
+  unit?: string;
+  note?: string;
+  extra?: ReactNode;
+  /** Có onClick thì thẻ render thành <button> và có hiệu ứng hover. */
+  onClick?: () => void;
+};
+
+/** Cột sparkline 7 ngày, dùng ở trang Reports. */
+export function Spark({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(...values, 1);
   return (
     <div className="spark" aria-hidden="true">
@@ -22,15 +36,17 @@ function Spark({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-function deltaNote(delta: number | null, fallback: string) {
+export function deltaNote(delta: number | null, fallback: string) {
   if (delta === null) return fallback;
   return `${delta >= 0 ? "+" : "−"}${Math.abs(delta)}% vs yesterday`;
 }
 
-export function KpiGrid({ kpis }: { kpis: Kpis | null }) {
-  const router = useRouter();
-
-  if (!kpis) {
+/**
+ * Lưới 4 thẻ KPI dùng chung. Nội dung thẻ do từng trang tự dựng để Dashboard
+ * (số liệu hôm nay) và Reports (số liệu chu kỳ) không bao giờ hiển thị trùng nhau.
+ */
+export function KpiGrid({ cards }: { cards: KpiCard[] | null }) {
+  if (!cards) {
     return (
       <div className="kpi-grid">
         {[0, 1, 2, 3].map((index) => (
@@ -43,69 +59,6 @@ export function KpiGrid({ kpis }: { kpis: Kpis | null }) {
       </div>
     );
   }
-
-  const cards: {
-    id: string;
-    label: string;
-    icon: IconName;
-    tint: string;
-    ink: string;
-    value: string;
-    unit: string;
-    note: string;
-    extra?: React.ReactNode;
-    onClick?: () => void;
-  }[] = [
-    {
-      id: "total-skus",
-      label: "Total SKUs in stock",
-      icon: "box",
-      tint: "var(--primary-soft)",
-      ink: "var(--primary-ink)",
-      value: nf(kpis.skusInStock),
-      unit: `/ ${nf(kpis.totalSkus)}`,
-      note: `${nf(kpis.unitsOnHand)} units on hand`,
-    },
-    {
-      id: "low-stock",
-      label: "Low stock alerts",
-      icon: "alert",
-      tint: "var(--warn-soft)",
-      ink: "var(--warn-ink)",
-      value: nf(kpis.lowStock),
-      unit: "SKUs",
-      note: "Below safety stock",
-      extra: (
-        <span className={`badge ${kpis.outOfStock ? "b-bad" : "b-warn"}`}>
-          <span className="dot" />
-          {kpis.outOfStock ? `${nf(kpis.outOfStock)} out of stock` : "Action needed"}
-        </span>
-      ),
-      onClick: () => router.push("/inventory?status=low"),
-    },
-    {
-      id: "inbound-today",
-      label: "Today's inbound items",
-      icon: "inbound",
-      tint: "var(--primary-soft)",
-      ink: "var(--primary-ink)",
-      value: nf(kpis.inboundToday),
-      unit: "units",
-      note: deltaNote(kpis.inboundDelta, "First receipts of the day"),
-      extra: <Spark values={kpis.inboundSeries} color="#4338CA" />,
-    },
-    {
-      id: "outbound-today",
-      label: "Today's outbound items",
-      icon: "outbound",
-      tint: "var(--success-soft)",
-      ink: "var(--success-ink)",
-      value: nf(kpis.outboundToday),
-      unit: "units",
-      note: deltaNote(kpis.outboundDelta, "No dispatches posted yet"),
-      extra: <Spark values={kpis.outboundSeries} color="#059669" />,
-    },
-  ];
 
   return (
     <div className="kpi-grid">
@@ -120,7 +73,7 @@ export function KpiGrid({ kpis }: { kpis: Kpis | null }) {
             </div>
             <div className="kpi-val">
               {card.value}
-              <span className="kpi-unit">{card.unit}</span>
+              {card.unit && <span className="kpi-unit">{card.unit}</span>}
             </div>
             <div className="kpi-foot">
               <span className="kpi-note">{card.note}</span>
@@ -130,7 +83,13 @@ export function KpiGrid({ kpis }: { kpis: Kpis | null }) {
         );
 
         return card.onClick ? (
-          <button key={card.id} type="button" className="kpi" onClick={card.onClick} data-od-id={`kpi-${card.id}`}>
+          <button
+            key={card.id}
+            type="button"
+            className="kpi"
+            onClick={card.onClick}
+            data-od-id={`kpi-${card.id}`}
+          >
             {content}
           </button>
         ) : (
